@@ -86,6 +86,20 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         c.play()
     }
 
+    /** Puts songs right after the current one, or starts them if nothing is loaded. */
+    fun playNext(items: List<MediaItem>) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) return play(items, 0, false)
+        c.addMediaItems(c.currentMediaItemIndex + 1, items)
+    }
+
+    /** Adds songs to the end of the queue, or starts them if nothing is loaded. */
+    fun enqueue(items: List<MediaItem>) {
+        val c = controller ?: return
+        if (c.mediaItemCount == 0) return play(items, 0, false)
+        c.addMediaItems(items)
+    }
+
     fun togglePlay() {
         val c = controller ?: return
         if (c.isPlaying) c.pause() else {

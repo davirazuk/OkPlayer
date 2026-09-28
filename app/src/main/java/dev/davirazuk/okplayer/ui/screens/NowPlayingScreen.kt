@@ -85,6 +85,7 @@ fun NowPlayingScreen(
                     DeckView.Disc -> DiscWell(
                         artUri = state.artUri,
                         playing = state.isPlaying,
+                        name = state.album.ifBlank { null },
                         modifier = Modifier.fillMaxWidth(0.78f).widthIn(max = 330.dp),
                     )
                     DeckView.Lyrics -> LyricsView(lyrics, state.positionMs, onlineLyrics)

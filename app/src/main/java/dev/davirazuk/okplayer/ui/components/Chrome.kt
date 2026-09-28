@@ -2,6 +2,8 @@ package dev.davirazuk.okplayer.ui.components
 
 import android.net.Uri
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +14,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -202,8 +206,8 @@ private fun Toolbar(crumbs: List<Crumb>, canGoBack: Boolean, onBack: () -> Unit)
 
 /** Windows 7 context menu: white, grey border, soft shadow, blue selection, check marks. */
 @Composable
-fun Win7Menu(items: List<MenuItem>, onDismiss: () -> Unit) {
-    val below = with(LocalDensity.current) { 26.dp.roundToPx() }
+fun Win7Menu(items: List<MenuItem>, onDismiss: () -> Unit, offsetY: Dp = 26.dp) {
+    val below = with(LocalDensity.current) { offsetY.roundToPx() }
     Popup(
         offset = IntOffset(0, below),
         onDismissRequest = onDismiss,
@@ -327,7 +331,14 @@ fun Command(label: String, onClick: () -> Unit) {
 }
 
 /** The blue selection look Windows uses for list items, shown while pressed or when current. */
-fun Modifier.explorerItem(selected: Boolean, source: MutableInteractionSource, pressed: Boolean, onClick: () -> Unit): Modifier {
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.explorerItem(
+    selected: Boolean,
+    source: MutableInteractionSource,
+    pressed: Boolean,
+    onLongClick: (() -> Unit)? = null,
+    onClick: () -> Unit,
+): Modifier {
     val shape = RoundedCornerShape(3.dp)
     val (fill, edge) = when {
         pressed -> Palette.Selected to Palette.SelectedEdge
@@ -338,7 +349,7 @@ fun Modifier.explorerItem(selected: Boolean, source: MutableInteractionSource, p
         .clip(shape)
         .background(fill)
         .border(1.dp, edge, shape)
-        .clickable(interactionSource = source, indication = null, onClick = onClick)
+        .combinedClickable(interactionSource = source, indication = null, onLongClick = onLongClick, onClick = onClick)
 }
 
 @Composable
@@ -434,10 +445,31 @@ fun Stars(rating: Int, modifier: Modifier = Modifier, size: Dp = 12.dp, off: Col
     }
 }
 
+/**
+ * Cover art. Albums without art get a cover of their own: a gradient in a colour
+ * derived from [name] with its first letter, so they stay tellable apart.
+ */
 @Composable
-fun Artwork(uri: Uri?, modifier: Modifier = Modifier) {
+fun Artwork(uri: Uri?, modifier: Modifier = Modifier, name: String? = null) {
     val placeholder: @Composable () -> Unit = {
-        Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFFB9C6D6), Color(0xFF7E8FA5)))))
+        if (name.isNullOrBlank()) {
+            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFFB9C6D6), Color(0xFF7E8FA5)))))
+        } else {
+            val hue = ((name.hashCode() % 360) + 360) % 360f
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.linearGradient(listOf(Color.hsv(hue, 0.45f, 0.72f), Color.hsv((hue + 40) % 360, 0.6f, 0.32f)))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    name.trim().first().uppercase(),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = (maxWidth.value * 0.42f).sp,
+                    fontWeight = FontWeight.Light,
+                )
+            }
+        }
     }
     if (uri == null) {
         Box(modifier) { placeholder() }
@@ -533,7 +565,7 @@ private fun NowPlayingStrip(info: NowPlayingInfo, onOpen: () -> Unit) {
             .padding(start = 10.dp, end = 12.dp, top = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Artwork(info.artUri, Modifier.size(30.dp).border(1.dp, Color.Black))
+        Artwork(info.artUri, Modifier.size(30.dp).border(1.dp, Color.Black), name = info.title)
         Column(Modifier.padding(start = 9.dp).weight(1f)) {
             Text(info.title, fontSize = 12.5.sp, lineHeight = 15.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(info.artist, fontSize = 11.sp, lineHeight = 13.sp, color = Palette.BarDim, maxLines = 1, overflow = TextOverflow.Ellipsis)

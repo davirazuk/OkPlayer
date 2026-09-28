@@ -46,7 +46,7 @@ import kotlin.math.sin
 
 /** The disc sitting in a recessed well, like the tray of a CD player. */
 @Composable
-fun DiscWell(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier) {
+fun DiscWell(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier, name: String? = null) {
     Box(
         modifier
             .aspectRatio(1f)
@@ -76,7 +76,7 @@ fun DiscWell(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier) {
             .clip(CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Disc(artUri = artUri, playing = playing, modifier = Modifier.fillMaxWidth(0.91f))
+        Disc(artUri = artUri, playing = playing, modifier = Modifier.fillMaxWidth(0.91f), name = name)
     }
 }
 

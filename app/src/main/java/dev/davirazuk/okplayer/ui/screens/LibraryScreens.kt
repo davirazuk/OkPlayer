@@ -47,7 +47,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import dev.davirazuk.okplayer.library.Album
+import dev.davirazuk.okplayer.library.Track
+import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.components.Win7Menu
 import dev.davirazuk.okplayer.ui.LibraryState
 import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.components.Artwork
@@ -74,6 +79,7 @@ fun LibraryScreen(
     onPlaySong: (Album, Int) -> Unit,
     onRefresh: () -> Unit,
     onOptions: () -> Unit,
+    actions: QueueActions = QueueActions(),
 ) {
     Column(Modifier.fillMaxSize()) {
         CommandBar {
@@ -99,11 +105,32 @@ fun LibraryScreen(
                     Modifier.padding(12.dp),
                 )
             } else {
-                LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong)
+                LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong, actions)
             }
         }
     }
 }
+
+/** Long-press actions on songs and albums, like WMP's right-click menu. */
+class QueueActions(
+    val playNext: (List<Track>) -> Unit = {},
+    val enqueue: (List<Track>) -> Unit = {},
+)
+
+private fun songMenu(track: Track, actions: QueueActions, play: () -> Unit) = listOf(
+    MenuItem("Play", onClick = play),
+    MenuItem("Play next") { actions.playNext(listOf(track)) },
+    MenuItem("Add to Now Playing") { actions.enqueue(listOf(track)) },
+)
+
+private fun albumMenu(album: Album, actions: QueueActions, open: () -> Unit, play: () -> Unit) = listOf(
+    MenuItem("Open", onClick = open),
+    MenuItem("Play", onClick = play),
+    MenuItem("Play next") { actions.playNext(album.tracks) },
+    MenuItem("Add to Now Playing") { actions.enqueue(album.tracks) },
+)
+
+private fun plural(n: Int, word: String) = "$n $word" + if (n == 1) "" else "s"
 
 private data class SongHit(val album: Album, val index: Int) {
     val track get() = album.tracks[index]
@@ -121,6 +148,7 @@ private fun LibraryContent(
     onOpenAlbum: (Album) -> Unit,
     onOpenArtist: (String) -> Unit,
     onPlaySong: (Album, Int) -> Unit,
+    actions: QueueActions,
 ) {
     val albums = remember(all, query) {
         if (query.isEmpty()) all else all.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
@@ -169,14 +197,18 @@ private fun LibraryContent(
             item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Songs (${songs.size})") }
             items(songs.size, span = { GridItemSpan(maxLineSpan) }) { i ->
                 val hit = songs[i]
-                SongRow(hit.track.title, "${hit.track.artist} · ${hit.album.title}", formatTime(hit.track.durationMs)) {
-                    onPlaySong(hit.album, hit.index)
-                }
+                val play = { onPlaySong(hit.album, hit.index) }
+                SongRow(
+                    hit.track.title, "${hit.track.artist} · ${hit.album.title}", formatTime(hit.track.durationMs),
+                    menu = songMenu(hit.track, actions, play), onClick = play,
+                )
             }
         }
         if (view == LibraryView.Albums && albums.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Albums (${albums.size})") }
-            items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
+            items(albums, key = { it.id }) { album ->
+                AlbumTile(album, albumMenu(album, actions, { onOpenAlbum(album) }, { onPlaySong(album, 0) })) { onOpenAlbum(album) }
+            }
         }
     }
 }
@@ -200,16 +232,17 @@ private fun ArtistRow(artist: ArtistEntry, onClick: () -> Unit) {
                 Artwork(
                     album.artUri,
                     Modifier
-                        .padding(start = (depth * 5).dp, top = ((2 - depth).coerceAtLeast(0) * 2).dp)
-                        .size(46.dp)
-                        .shadow(2.dp, RoundedCornerShape(1.dp)),
+                        .padding(start = (depth * 7).dp, top = ((2 - depth).coerceAtLeast(0) * 3).dp)
+                        .size(44.dp)
+                        .shadow(3.dp, RoundedCornerShape(1.dp)),
+                    name = album.title,
                 )
             }
         }
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(artist.name, fontSize = 13.5.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${artist.albums.size} album${if (artist.albums.size == 1) "" else "s"}, ${artist.songCount} songs",
+                "${plural(artist.albums.size, "album")}, ${plural(artist.songCount, "song")}",
                 fontSize = 11.5.sp, color = Palette.Sub,
             )
         }
@@ -223,9 +256,11 @@ fun ArtistScreen(
     noSkipping: Boolean,
     onOpenAlbum: (Album) -> Unit,
     onPlayAll: (shuffle: Boolean) -> Unit,
+    onPlayAlbum: (Album) -> Unit = {},
+    actions: QueueActions = QueueActions(),
 ) {
     Column(Modifier.fillMaxSize()) {
-        CommandBar(trailing = "${albums.size} albums, ${albums.sumOf { it.tracks.size }} songs") {
+        CommandBar(trailing = "${plural(albums.size, "album")}, ${plural(albums.sumOf { it.tracks.size }, "song")}") {
             Command("Play all") { onPlayAll(false) }
             if (!noSkipping) Command("Shuffle") { onPlayAll(true) }
         }
@@ -237,28 +272,34 @@ fun ArtistScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader(artist) }
-            items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
+            items(albums, key = { it.id }) { album ->
+                AlbumTile(album, albumMenu(album, actions, { onOpenAlbum(album) }, { onPlayAlbum(album) })) { onOpenAlbum(album) }
+            }
         }
     }
 }
 
 @Composable
-private fun SongRow(title: String, detail: String, duration: String, onClick: () -> Unit) {
+private fun SongRow(title: String, detail: String, duration: String, menu: List<MenuItem>, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .explorerItem(selected = false, source = source, pressed = pressed, onClick = onClick)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, fontSize = 11.5.sp, color = Palette.Sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .explorerItem(selected = open, source = source, pressed = pressed, onLongClick = { open = true }, onClick = onClick)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, fontSize = 11.5.sp, color = Palette.Sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(duration, fontSize = 12.sp, color = Palette.Sub)
         }
-        Text(duration, fontSize = 12.sp, color = Palette.Sub)
+        if (open) Win7Menu(menu, onDismiss = { open = false }, offsetY = 40.dp)
     }
 }
 
@@ -298,12 +339,14 @@ private fun SearchBox(query: String, onQuery: (String) -> Unit, modifier: Modifi
 }
 
 @Composable
-private fun AlbumTile(album: Album, onClick: () -> Unit) {
+private fun AlbumTile(album: Album, menu: List<MenuItem>, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
+    var open by remember { mutableStateOf(false) }
+    if (open) Box { Win7Menu(menu, onDismiss = { open = false }, offsetY = 90.dp) }
     Column(
         Modifier
-            .explorerItem(selected = false, source = source, pressed = pressed, onClick = onClick)
+            .explorerItem(selected = open, source = source, pressed = pressed, onLongClick = { open = true }, onClick = onClick)
             .padding(7.dp),
     ) {
         Artwork(
@@ -312,6 +355,7 @@ private fun AlbumTile(album: Album, onClick: () -> Unit) {
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .shadow(2.dp, RoundedCornerShape(1.dp)),
+            name = album.title,
         )
         Text(
             album.title, fontSize = 12.5.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -328,22 +372,24 @@ fun AlbumScreen(
     ratings: Map<String, Int>,
     noSkipping: Boolean,
     onPlay: (startIndex: Int, shuffle: Boolean) -> Unit,
+    actions: QueueActions = QueueActions(),
 ) {
     Column(Modifier.fillMaxSize()) {
         CommandBar {
             Command("Play") { onPlay(0, false) }
             if (!noSkipping) Command("Shuffle") { onPlay(0, true) }
+            Command("Add to Now Playing") { actions.enqueue(album.tracks) }
         }
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
             item {
                 Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.Bottom) {
-                    Artwork(album.artUri, Modifier.size(112.dp).shadow(2.dp, RoundedCornerShape(1.dp)))
+                    Artwork(album.artUri, Modifier.size(112.dp).shadow(2.dp, RoundedCornerShape(1.dp)), name = album.title)
                     Column(Modifier.padding(start = 14.dp)) {
                         Text(album.title, fontSize = 18.sp, color = Palette.Heading, lineHeight = 22.sp)
                         Text(album.artist, fontSize = 12.sp, color = Palette.Sub, modifier = Modifier.padding(top = 3.dp))
                         val meta = listOfNotNull(
                             album.year?.toString(),
-                            "${album.tracks.size} songs",
+                            plural(album.tracks.size, "song"),
                             "${album.durationMs / 60_000} minutes",
                         ).joinToString(", ")
                         Text(meta, fontSize = 12.sp, color = Palette.Sub)
@@ -359,6 +405,7 @@ fun AlbumScreen(
                     rating = ratings[id] ?: 0,
                     duration = formatTime(track.durationMs),
                     current = id == currentId,
+                    menu = songMenu(track, actions) { onPlay(index, false) },
                     onClick = { onPlay(index, false) },
                 )
             }
@@ -391,20 +438,32 @@ private fun ColumnHeaders() {
 }
 
 @Composable
-private fun TrackRow(number: Int, title: String, rating: Int, duration: String, current: Boolean, onClick: () -> Unit) {
+private fun TrackRow(
+    number: Int,
+    title: String,
+    rating: Int,
+    duration: String,
+    current: Boolean,
+    menu: List<MenuItem>,
+    onClick: () -> Unit,
+) {
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(34.dp)
-            .explorerItem(selected = current, source = source, pressed = pressed, onClick = onClick)
-            .padding(horizontal = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("$number", fontSize = 12.5.sp, color = Palette.Sub, modifier = Modifier.width(columnWidths[0]))
-        Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Box(Modifier.width(columnWidths[1])) { Stars(rating) }
-        Text(duration, fontSize = 12.5.sp, color = Palette.Sub, textAlign = TextAlign.End, modifier = Modifier.width(columnWidths[2]))
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .explorerItem(selected = current || open, source = source, pressed = pressed, onLongClick = { open = true }, onClick = onClick)
+                .padding(horizontal = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("$number", fontSize = 12.5.sp, color = Palette.Sub, modifier = Modifier.width(columnWidths[0]))
+            Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Box(Modifier.width(columnWidths[1])) { Stars(rating) }
+            Text(duration, fontSize = 12.5.sp, color = Palette.Sub, textAlign = TextAlign.End, modifier = Modifier.width(columnWidths[2]))
+        }
+        if (open) Win7Menu(menu, onDismiss = { open = false }, offsetY = 34.dp)
     }
 }

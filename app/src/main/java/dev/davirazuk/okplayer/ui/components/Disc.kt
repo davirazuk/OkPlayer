@@ -33,7 +33,7 @@ private const val SECONDS_PER_TURN = 3.6f
  * The rainbow sheen stays still while the disc turns under it, like light on a real disc.
  */
 @Composable
-fun Disc(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier) {
+fun Disc(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier, name: String? = null) {
     val angle = remember { Animatable(0f) }
 
     LaunchedEffect(playing) {
@@ -82,6 +82,7 @@ fun Disc(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier) {
             }
             Artwork(
                 uri = artUri,
+                name = name,
                 modifier = Modifier
                     .align(Alignment.Center)
                     .fillMaxWidth(0.5f)

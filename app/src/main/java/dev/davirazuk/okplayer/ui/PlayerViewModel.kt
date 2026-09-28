@@ -11,6 +11,7 @@ import dev.davirazuk.okplayer.data.PlaybackEvents
 import dev.davirazuk.okplayer.data.Preferences
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.LibraryRepository
+import dev.davirazuk.okplayer.library.Track
 import dev.davirazuk.okplayer.playback.PlayerConnection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -166,6 +167,16 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setQuery(text: String) {
         _query.value = text
+    }
+
+    fun playNext(tracks: List<Track>) {
+        connection.playNext(tracks.map { it.toMediaItem() })
+        PlaybackEvents.post(if (tracks.size == 1) "“${tracks[0].title}” plays next." else "${tracks.size} songs play next.", isError = false)
+    }
+
+    fun enqueue(tracks: List<Track>) {
+        connection.enqueue(tracks.map { it.toMediaItem() })
+        PlaybackEvents.post(if (tracks.size == 1) "Added “${tracks[0].title}” to Now Playing." else "Added ${tracks.size} songs to Now Playing.", isError = false)
     }
 
     fun artistAlbums(artist: String): List<Album> =
