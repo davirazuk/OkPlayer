@@ -107,9 +107,27 @@ svg{display:block}
 .stars svg{width:12px;height:12px}
 
 /* ---- now playing: the deck ---- */
-.np{min-height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:22px 18px 18px;color:#dfe7ee;background:var(--black)}
+.np{min-height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 18px 16px;color:#dfe7ee;background:var(--black)}
 .np canvas{position:absolute;inset:0;width:100%;height:100%}
 .np > :not(canvas){position:relative}
+.tabs{align-self:stretch;display:flex;gap:2px;margin:0 -10px}
+.tabs button{background:none;border:1px solid transparent;border-radius:3px;color:#aeb6bf;font-size:12.5px;padding:4px 10px;cursor:pointer}
+.tabs button[aria-pressed="true"]{color:#fff;border-color:rgba(255,255,255,.25);background:linear-gradient(rgba(255,255,255,.25),rgba(255,255,255,.06))}
+.stage{flex:1;width:100%;min-height:260px;display:grid;place-items:center}
+.lyrics{align-self:stretch;height:100%;max-height:52vh;overflow-y:auto;text-align:center;padding:80px 6px;scroll-behavior:smooth;scrollbar-width:none;
+  -webkit-mask:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.lyrics p{margin:0;padding:5px 0;font-size:16px;line-height:1.45;color:#5b6873;transition:color .3s,font-size .3s}
+.lyrics.plain p{color:#dce6ee}
+.lyrics p.on{color:var(--lcdOn);font-size:19px;text-shadow:0 0 12px rgba(143,240,255,.55)}
+.lyrics .msg{color:#7f8b98;font-size:13px}
+.plist{align-self:stretch;height:100%;max-height:52vh;overflow-y:auto}
+.plist button{display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:center;width:100%;height:42px;padding:0 10px;border:1px solid transparent;border-radius:3px;background:none;text-align:left;cursor:pointer;color:#dce3ea}
+.plist button:hover{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
+.plist button.cur{color:#fff;border-color:#5aaee8;background:linear-gradient(#2c6ea6,#184c7c)}
+.plist .n{font-size:12px;color:#6f7c89}.plist .cur .n{color:#fff}
+.plist b{display:block;font-weight:400;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plist small{display:block;font-size:11px;color:#7f8b98;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.plist .cur small{color:#bfddf5}
+.curlyric{min-height:19px;max-width:340px;text-align:center;font-family:var(--lcdfont);font-size:13px;color:rgba(143,240,255,.85);text-shadow:0 0 10px rgba(143,240,255,.5)}
 .well{width:min(76vw,300px);aspect-ratio:1;border-radius:50%;padding:4.5%;
   background:radial-gradient(circle at 50% 50%,#0b0c0e 0 62%,#15171a 70%,#050506 100%);
   box-shadow:inset 0 6px 18px rgba(0,0,0,.95),inset 0 -1px 0 rgba(255,255,255,.12),0 0 0 1px #2b2f35,0 0 0 5px #131518,0 0 0 6px #33383f,0 18px 40px rgba(0,0,0,.7)}
@@ -192,13 +210,19 @@ button:focus-visible{outline:1px dotted currentColor;outline-offset:2px}
   <main class="pane dark" id="pane">
     <section class="np" id="vNow">
       <canvas id="viz"></canvas>
-      <div class="well"><div class="disc" id="disc"><div class="spin"><div class="label" id="label"></div></div><div class="sheen"></div><div class="hub"></div></div></div>
+      <div class="tabs" role="tablist"><button data-v="disc" aria-pressed="true">Disc</button><button data-v="lyrics" aria-pressed="false">Lyrics</button><button data-v="list" aria-pressed="false">Play list</button></div>
+      <div class="stage">
+        <div class="well" id="well"><div class="disc" id="disc"><div class="spin"><div class="label" id="label"></div></div><div class="sheen"></div><div class="hub"></div></div></div>
+        <div class="lyrics" id="lyrView" hidden></div>
+        <div class="plist" id="listView" hidden></div>
+      </div>
       <div class="lcd" id="lcd">
         <div class="lcd-top"><span><small>TRACK</small><span id="lcdTrack">--</span></span><span id="tNowLcd">-:--</span></div>
         <div class="lcd-title" id="lcdTitle"><span id="npTitle">NO DISC</span></div>
         <div class="lcd-sub" id="npArtist">ADD MUSIC OR PRESS PLAY FOR A DEMO</div>
         <div class="lcd-ind"><span id="iShuf">SHUF</span><span id="iLock">NO SKIP</span><span id="iFmt" class="fmt">--</span></div>
       </div>
+      <div class="curlyric" id="curLyric"></div>
       <div class="rate" id="react" aria-label="Rating"></div>
       <div class="note" id="note"></div>
     </section>
@@ -418,8 +442,8 @@ $("play").onclick=()=>{if(!queue.length){playDemo();return}setupAudio();actx?.re
 $("next").onclick=()=>next(false);$("prev").onclick=prev;
 audio.onended=()=>{unlocked=true;next(true)};
 audio.onplay=audio.onpause=()=>{const on=!audio.paused;$("disc").classList.toggle("on",on);$("play").innerHTML=on?ICON_PAUSE:ICON_PLAY;$("play").setAttribute("aria-label",on?"Pause":"Play");if("mediaSession" in navigator)navigator.mediaSession.playbackState=on?"playing":"paused"};
-audio.onloadedmetadata=()=>{const t=queue[qi];if(t&&!t.dur&&isFinite(audio.duration)){t.dur=audio.duration;const l=lib.find(x=>x.id===t.id);if(l){l.dur=t.dur;saveLib()}}$("tLen").textContent=fmt(audio.duration)};
-audio.ontimeupdate=()=>{if(seeking)return;const d=audio.duration||0,p=d?audio.currentTime/d*1000:0;$("seek").value=p;$("seek").style.setProperty("--p",p/10+"%");$("tNow").textContent=fmt(audio.currentTime);$("tNowLcd").textContent=fmt(audio.currentTime);
+audio.onloadedmetadata=()=>{const t=queue[qi];if(t&&!t.dur&&isFinite(audio.duration)){t.dur=audio.duration;const l=lib.find(x=>x.id===t.id);if(l){l.dur=t.dur;saveLib()}}$("tLen").textContent=fmt(audio.duration);if(queue[qi]&&isFinite(audio.duration))fetchLyrics(queue[qi],audio.duration)};
+audio.ontimeupdate=()=>{if(seeking)return;const d=audio.duration||0,p=d?audio.currentTime/d*1000:0;$("seek").value=p;$("seek").style.setProperty("--p",p/10+"%");$("tNow").textContent=fmt(audio.currentTime);$("tNowLcd").textContent=fmt(audio.currentTime);tickLyrics();
   if("mediaSession" in navigator&&d&&isFinite(d))try{navigator.mediaSession.setPositionState({duration:d,position:Math.min(audio.currentTime,d),playbackRate:1})}catch(e){}};
 let seeking=false;
 $("seek").oninput=e=>{seeking=true;const d=audio.duration||0,to=e.target.value/1000*d;
@@ -443,6 +467,60 @@ function renderReact(){const r=$("react"),t=queue[qi];r.innerHTML="";r.hidden=!t
     b.onclick=()=>{ratings[t.id]=ratings[t.id]===i?0:i;store.set("ratings",ratings);renderReact()};r.appendChild(b)}}
 
 /* ---------- views ---------- */
+/* ---------- deck views, lyrics ---------- */
+let deck="disc",lyr={id:null,status:"none",lines:[],synced:false},lyrIdx=-2;
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{deck=deck===b.dataset.v?"disc":b.dataset.v;renderDeck()});
+function renderDeck(){
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===deck));
+  $("well").hidden=deck!=="disc";$("lyrView").hidden=deck!=="lyrics";$("listView").hidden=deck!=="list";
+  $("curLyric").hidden=deck!=="disc";
+  if(deck==="lyrics")renderLyrics();if(deck==="list")renderList();
+}
+function renderList(){
+  const v=$("listView");v.innerHTML=queue.length?"":'<p class="msg" style="text-align:center;color:#7f8b98">The play list is empty.</p>';
+  queue.forEach((t,i)=>{const b=document.createElement("button");b.className=i===qi?"cur":"";
+    b.innerHTML=`<span class="n">${i+1}</span><span><b>${esc(t.title)}</b><small>${esc(t.artist)}</small></span>`;
+    b.onclick=()=>{if(prefs.lock&&i!==qi){toast("No skipping is on. Finish this song first.");return}load(i,true)};v.appendChild(b)});
+  v.querySelector(".cur")?.scrollIntoView({block:"center"});
+}
+function parseLrc(text){
+  const re=/\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?\]/g,timed=[],plain=[];
+  for(const raw of text.split(/\r?\n/)){const stamps=[...raw.matchAll(re)],body=raw.replace(re,"").trim();
+    if(!stamps.length){if(!raw.trim().startsWith("["))plain.push({t:null,text:raw.trim()});continue}
+    for(const m of stamps){const f=m[3]||"",ms=f.length===0?0:f.length===1?+f*100:f.length===2?+f*10:+f.slice(0,3);timed.push({t:+m[1]*60000+ +m[2]*1000+ms,text:body})}}
+  if(timed.length)return{lines:timed.sort((a,b)=>a.t-b.t),synced:true};
+  if(plain.some(l=>l.text))return{lines:plain,synced:false};return null;
+}
+async function fetchLyrics(t,dur){
+  if(!t||t.demo||lyr.id===t.id)return;
+  lyr={id:t.id,status:"searching",lines:[],synced:false};lyrIdx=-2;renderLyrics();
+  const key="okp-lyr-"+t.id;let text=null;
+  try{text=localStorage.getItem(key)}catch(e){}
+  if(text===null){
+    try{const q=new URLSearchParams({artist_name:t.artist,track_name:t.title,album_name:t.album,duration:Math.round(dur)});
+      let r=await fetch("https://lrclib.net/api/get?"+q);let j=r.ok?await r.json():null;
+      if(!j){r=await fetch("https://lrclib.net/api/search?"+new URLSearchParams({track_name:t.title,artist_name:t.artist}));
+        const arr=r.ok?await r.json():[];j=arr.find(x=>Math.abs((x.duration||0)-dur)<4)||null}
+      text=(j&&(j.syncedLyrics||j.plainLyrics))||"";try{localStorage.setItem(key,text)}catch(e){}
+    }catch(e){text=""}
+  }
+  if(lyr.id!==t.id)return;
+  const p=text?parseLrc(text):null;lyr=p?{id:t.id,status:"found",...p}:{id:t.id,status:"none",lines:[],synced:false};lyrIdx=-2;renderLyrics();tickLyrics();
+}
+function renderLyrics(){
+  const v=$("lyrView");if(v.hidden&&deck!=="lyrics")return;
+  v.classList.toggle("plain",!lyr.synced);
+  v.innerHTML=lyr.status==="searching"?'<p class="msg">Looking for lyrics…</p>':lyr.status==="none"?'<p class="msg">No lyrics found for this song.</p>':
+    lyr.lines.map((l,i)=>`<p data-i="${i}">${esc(l.text)||"&nbsp;"}</p>`).join("");lyrIdx=-2;tickLyrics();
+}
+function tickLyrics(){
+  if(lyr.status!=="found"||!lyr.synced){$("curLyric").textContent="";return}
+  const ms=audio.currentTime*1000;let i=-1;for(let k=0;k<lyr.lines.length;k++){if(lyr.lines[k].t<=ms)i=k;else break}
+  if(i===lyrIdx)return;lyrIdx=i;$("curLyric").textContent=i>=0?(lyr.lines[i].text||"♪"):"♪";
+  const v=$("lyrView");v.querySelectorAll("p.on").forEach(p=>p.classList.remove("on"));
+  const p=v.querySelector(`p[data-i="${i}"]`);if(p){p.classList.add("on");if(!v.hidden)v.scrollTo({top:p.offsetTop-v.clientHeight/2+p.clientHeight/2})}
+}
+
 function renderNow(){
   const t=queue[qi],has=!!t;
   $("npTitle").textContent=(has?t.title:"no disc").toUpperCase();
@@ -453,6 +531,8 @@ function renderNow(){
   $("winTitle").textContent=has?`${t.title} - okplayer`:"okplayer";
   if(!has)$("label").style.backgroundImage="";
   marquee();renderReact();renderModes();
+  if(!has||lyr.id!==t.id){$("curLyric").textContent="";if(!has)lyr={id:null,status:"none",lines:[],synced:false}}
+  renderDeck();
 }
 function fileFormat(t){if(t.demo)return "WAV";const e=(t.file||"").split(".").pop().toUpperCase();return e||"--"}
 function marquee(){const box=$("lcdTitle"),sp=$("npTitle");box.classList.remove("scroll");sp.textContent=sp.textContent.split(" ")[0];
