@@ -58,6 +58,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     private val _deckView = MutableStateFlow(DeckView.Disc)
     val deckView: StateFlow<DeckView> = _deckView.asStateFlow()
 
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
     private val _lyrics = MutableStateFlow<LyricsState>(LyricsState.None)
     val lyrics: StateFlow<LyricsState> = _lyrics.asStateFlow()
 
@@ -142,6 +145,10 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         connection.play(album.tracks.map { it.toMediaItem() }, startIndex, shuffle && !noSkipping.value)
         _deckView.value = DeckView.Disc
         open(Screen.NowPlaying)
+    }
+
+    fun setQuery(text: String) {
+        _query.value = text
     }
 
     fun playAt(index: Int) {

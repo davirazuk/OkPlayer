@@ -1,7 +1,9 @@
 package dev.davirazuk.okplayer.data
 
+import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import dev.davirazuk.okplayer.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,15 +64,20 @@ object Lrc {
 }
 
 /**
- * Finds lyrics for a song. Results, including "nothing found", are cached on disk so
- * each song is looked up once. Online lookups go to lrclib.net, a free and open
- * lyrics database, and only happen when the user leaves that option on.
+ * Finds lyrics for a song: first in the file's own tags, then online. Online results,
+ * including "nothing found", are cached on disk so each song is looked up once.
+ * Lookups go to lrclib.net, a free and open lyrics database, and only happen when
+ * the user leaves that option on.
  */
-class LyricsRepository(context: Context) {
+class LyricsRepository(private val context: Context) {
     private val dir = File(context.filesDir, "lyrics").apply { mkdirs() }
 
     suspend fun find(mediaId: String, artist: String, title: String, album: String, durationMs: Long): Lyrics? =
         withContext(Dispatchers.IO) {
+            mediaId.toLongOrNull()?.let { id ->
+                val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                EmbeddedLyrics.read(context, uri)?.let(Lrc::parse)?.let { return@withContext it }
+            }
             val cached = File(dir, "$mediaId.lrc")
             val missing = File(dir, "$mediaId.none")
             if (cached.exists()) return@withContext Lrc.parse(cached.readText())

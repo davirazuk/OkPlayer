@@ -24,18 +24,25 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,21 +58,26 @@ import dev.davirazuk.okplayer.ui.components.Stars
 import dev.davirazuk.okplayer.ui.components.Win7Button
 import dev.davirazuk.okplayer.ui.components.explorerItem
 import dev.davirazuk.okplayer.ui.components.formatTime
+import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
 
 @Composable
 fun LibraryScreen(
     state: LibraryState,
+    query: String,
+    onQuery: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onOpenAlbum: (Album) -> Unit,
+    onPlaySong: (Album, Int) -> Unit,
     onRefresh: () -> Unit,
     onOptions: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        val count = (state as? LibraryState.Ready)?.albums?.let { a -> "${a.size} albums, ${a.sumOf { it.tracks.size }} songs" }
-        CommandBar(trailing = count) {
+        CommandBar {
             Command("Refresh", onRefresh)
             Command("Options", onOptions)
+            Spacer(Modifier.weight(1f))
+            SearchBox(query, onQuery, Modifier.width(158.dp))
         }
         when (state) {
             LibraryState.NeedsPermission -> Column(Modifier.padding(12.dp)) {
@@ -84,14 +96,24 @@ fun LibraryScreen(
                     Modifier.padding(12.dp),
                 )
             } else {
-                AlbumGrid(state.albums, onOpenAlbum)
+                AlbumGrid(state.albums, query.trim(), onOpenAlbum, onPlaySong)
             }
         }
     }
 }
 
+private data class SongHit(val album: Album, val index: Int)
+
 @Composable
-private fun AlbumGrid(albums: List<Album>, onOpenAlbum: (Album) -> Unit) {
+private fun AlbumGrid(all: List<Album>, query: String, onOpenAlbum: (Album) -> Unit, onPlaySong: (Album, Int) -> Unit) {
+    val albums = remember(all, query) {
+        if (query.isEmpty()) all
+        else all.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
+    }
+    val songs = remember(all, query) {
+        if (query.isEmpty()) emptyList()
+        else all.flatMap { a -> a.tracks.mapIndexedNotNull { i, t -> if (t.title.contains(query, true)) SongHit(a, i) else null } }.take(60)
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(132.dp),
         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
@@ -99,8 +121,78 @@ private fun AlbumGrid(albums: List<Album>, onOpenAlbum: (Album) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Albums") }
-        items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
+        if (query.isNotEmpty() && albums.isEmpty() && songs.isEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text("No results for “$query”.", fontSize = 13.sp, color = Palette.Sub, modifier = Modifier.padding(12.dp))
+            }
+        }
+        if (songs.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Songs (${songs.size})") }
+            items(songs.size, span = { GridItemSpan(maxLineSpan) }) { i ->
+                val hit = songs[i]
+                val track = hit.album.tracks[hit.index]
+                SongRow(track.title, "${track.artist} · ${hit.album.title}", formatTime(track.durationMs)) { onPlaySong(hit.album, hit.index) }
+            }
+        }
+        if (albums.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Albums (${albums.size})") }
+            items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
+        }
+    }
+}
+
+@Composable
+private fun SongRow(title: String, detail: String, duration: String, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .explorerItem(selected = false, source = source, pressed = pressed, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail, fontSize = 11.5.sp, color = Palette.Sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(duration, fontSize = 12.sp, color = Palette.Sub)
+    }
+}
+
+/** The Windows 7 search box: white field, grey hint, magnifier that becomes a clear button. */
+@Composable
+private fun SearchBox(query: String, onQuery: (String) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .height(24.dp)
+            .background(Color.White)
+            .border(1.dp, if (query.isEmpty()) Color(0xFFA8B7C9) else Color(0xFF3D7BAD))
+            .padding(start = 6.dp, end = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (query.isEmpty()) Text("Search", fontSize = 12.sp, color = Color(0xFF8A8A8A), fontStyle = FontStyle.Italic)
+            BasicTextField(
+                value = query,
+                onValueChange = onQuery,
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 12.5.sp, color = Palette.Ink),
+                cursorBrush = SolidColor(Palette.Ink),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Icon(
+            if (query.isEmpty()) Glyphs.Search else Glyphs.Close,
+            if (query.isEmpty()) null else "Clear search",
+            tint = Color(0xFF5B6F86),
+            modifier = Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .clickable(enabled = query.isNotEmpty()) { onQuery("") }
+                .padding(2.dp),
+        )
     }
 }
 

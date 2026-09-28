@@ -134,7 +134,7 @@ class ScreenshotTest {
     @Test
     fun library() = paparazzi.snapshot {
         Window("Paranoid Android - okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false) {
-            LibraryScreen(LibraryState.Ready(albums), onRequestPermission = {}, onOpenAlbum = {}, onRefresh = {}, onOptions = {})
+            LibraryScreen(LibraryState.Ready(albums), "", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
         }
     }
 
@@ -156,9 +156,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun search() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false) {
+            LibraryScreen(LibraryState.Ready(albums), "radio", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    @Test
     fun needsPermission() = paparazzi.snapshot {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false, state = NowPlaying()) {
-            LibraryScreen(LibraryState.NeedsPermission, onRequestPermission = {}, onOpenAlbum = {}, onRefresh = {}, onOptions = {})
+            LibraryScreen(LibraryState.NeedsPermission, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
         }
     }
 }

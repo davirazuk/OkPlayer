@@ -82,6 +82,7 @@ private fun App(vm: PlayerViewModel) {
     val deckView by vm.deckView.collectAsStateWithLifecycle()
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val notice by vm.notice.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
 
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[audioPermission] == true) vm.onPermissionGranted()
@@ -145,8 +146,11 @@ private fun App(vm: PlayerViewModel) {
             when (target) {
                 Screen.Library -> LibraryScreen(
                     state = library,
+                    query = query,
+                    onQuery = vm::setQuery,
                     onRequestPermission = request,
                     onOpenAlbum = { vm.open(Screen.AlbumDetail(it.id)) },
+                    onPlaySong = { album, index -> vm.playAlbum(album, index) },
                     onRefresh = vm::refresh,
                     onOptions = { vm.open(Screen.Options) },
                 )
