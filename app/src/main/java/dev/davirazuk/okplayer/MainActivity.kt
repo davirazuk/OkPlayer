@@ -41,6 +41,9 @@ import dev.davirazuk.okplayer.ui.Screen
 import dev.davirazuk.okplayer.ui.components.AeroWindow
 import dev.davirazuk.okplayer.ui.components.ControlBar
 import dev.davirazuk.okplayer.ui.components.Crumb
+import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.LibraryView
+import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
 import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
@@ -69,7 +72,7 @@ private val audioPermission =
 private fun App(vm: PlayerViewModel) {
     val context = LocalContext.current
     val screen by vm.screen.collectAsStateWithLifecycle()
-    val library by vm.library.collectAsStateWithLifecycle()
+    val libraryState by vm.library.collectAsStateWithLifecycle()
     val nowPlaying by vm.nowPlaying.collectAsStateWithLifecycle()
     val queue by vm.queue.collectAsStateWithLifecycle()
     val output by vm.output.collectAsStateWithLifecycle()
@@ -84,6 +87,7 @@ private fun App(vm: PlayerViewModel) {
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val notice by vm.notice.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
+    val libraryView by vm.libraryView.collectAsStateWithLifecycle()
 
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[audioPermission] == true) vm.onPermissionGranted()
@@ -106,12 +110,14 @@ private fun App(vm: PlayerViewModel) {
 
     BackHandler(enabled = screen != Screen.Library) { vm.back() }
 
-    val toLibrary = { if (screen != Screen.Library) vm.open(Screen.Library) }
+    val views = LibraryView.entries.map { v -> MenuItem(v.label, checked = v == libraryView) { vm.setLibraryView(v) } }
+    val library = Crumb("Library", onClick = { vm.setLibraryView(libraryView) })
     val crumbs = when (val s = screen) {
-        Screen.Library -> listOf(Crumb("Library"), Crumb("Albums"))
-        is Screen.AlbumDetail -> listOf(Crumb("Library", toLibrary), Crumb("Albums", toLibrary), Crumb(vm.album(s.albumId)?.title ?: "Album"))
+        Screen.Library -> listOf(library, Crumb(libraryView.label, menu = views))
+        is Screen.AlbumDetail -> listOf(library, Crumb(libraryView.label, menu = views), Crumb(vm.album(s.albumId)?.title ?: "Album"))
+        is Screen.ArtistDetail -> listOf(library, Crumb("Artists", menu = views), Crumb(s.artist))
         Screen.NowPlaying -> listOf(Crumb("Now Playing"))
-        Screen.Options -> listOf(Crumb("Library", toLibrary), Crumb("Options"))
+        Screen.Options -> listOf(library, Crumb("Options"))
     }
 
     AeroWindow(
@@ -146,11 +152,13 @@ private fun App(vm: PlayerViewModel) {
         ) { target ->
             when (target) {
                 Screen.Library -> LibraryScreen(
-                    state = library,
+                    state = libraryState,
+                    view = libraryView,
                     query = query,
                     onQuery = vm::setQuery,
                     onRequestPermission = request,
                     onOpenAlbum = { vm.open(Screen.AlbumDetail(it.id)) },
+                    onOpenArtist = { vm.open(Screen.ArtistDetail(it)) },
                     onPlaySong = { album, index -> vm.playAlbum(album, index) },
                     onRefresh = vm::refresh,
                     onOptions = { vm.open(Screen.Options) },
@@ -170,6 +178,14 @@ private fun App(vm: PlayerViewModel) {
                         )
                     }
                 }
+
+                is Screen.ArtistDetail -> ArtistScreen(
+                    artist = target.artist,
+                    albums = vm.artistAlbums(target.artist),
+                    noSkipping = noSkipping,
+                    onOpenAlbum = { vm.open(Screen.AlbumDetail(it.id)) },
+                    onPlayAll = { shuffle -> vm.playArtist(target.artist, shuffle) },
+                )
 
                 Screen.NowPlaying -> NowPlayingScreen(
                     state = nowPlaying,

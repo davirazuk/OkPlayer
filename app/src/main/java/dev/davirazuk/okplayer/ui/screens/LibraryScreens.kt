@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.ui.LibraryState
+import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.components.Artwork
 import dev.davirazuk.okplayer.ui.components.Command
 import dev.davirazuk.okplayer.ui.components.CommandBar
@@ -64,10 +65,12 @@ import dev.davirazuk.okplayer.ui.theme.Palette
 @Composable
 fun LibraryScreen(
     state: LibraryState,
+    view: LibraryView,
     query: String,
     onQuery: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onOpenAlbum: (Album) -> Unit,
+    onOpenArtist: (String) -> Unit,
     onPlaySong: (Album, Int) -> Unit,
     onRefresh: () -> Unit,
     onOptions: () -> Unit,
@@ -96,24 +99,49 @@ fun LibraryScreen(
                     Modifier.padding(12.dp),
                 )
             } else {
-                AlbumGrid(state.albums, query.trim(), onOpenAlbum, onPlaySong)
+                LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong)
             }
         }
     }
 }
 
-private data class SongHit(val album: Album, val index: Int)
+private data class SongHit(val album: Album, val index: Int) {
+    val track get() = album.tracks[index]
+}
+
+private data class ArtistEntry(val name: String, val albums: List<Album>) {
+    val songCount get() = albums.sumOf { it.tracks.size }
+}
 
 @Composable
-private fun AlbumGrid(all: List<Album>, query: String, onOpenAlbum: (Album) -> Unit, onPlaySong: (Album, Int) -> Unit) {
+private fun LibraryContent(
+    view: LibraryView,
+    all: List<Album>,
+    query: String,
+    onOpenAlbum: (Album) -> Unit,
+    onOpenArtist: (String) -> Unit,
+    onPlaySong: (Album, Int) -> Unit,
+) {
     val albums = remember(all, query) {
-        if (query.isEmpty()) all
-        else all.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
+        if (query.isEmpty()) all else all.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
     }
-    val songs = remember(all, query) {
-        if (query.isEmpty()) emptyList()
-        else all.flatMap { a -> a.tracks.mapIndexedNotNull { i, t -> if (t.title.contains(query, true)) SongHit(a, i) else null } }.take(60)
+    val artists = remember(all, query) {
+        all.groupBy { it.artist }
+            .map { (name, list) -> ArtistEntry(name, list) }
+            .filter { query.isEmpty() || it.name.contains(query, true) }
+            .sortedBy { it.name.lowercase() }
     }
+    val songs = remember(all, query, view) {
+        val hits = all.flatMap { a -> a.tracks.indices.map { SongHit(a, it) } }
+        when {
+            view == LibraryView.Songs && query.isEmpty() -> hits.sortedBy { it.track.title.lowercase() }
+            query.isEmpty() -> emptyList()
+            else -> hits.filter { it.track.title.contains(query, true) || (view == LibraryView.Songs && it.track.artist.contains(query, true)) }
+                .sortedBy { it.track.title.lowercase() }
+                .let { if (view == LibraryView.Songs) it else it.take(60) }
+        }
+    }
+
     LazyVerticalGrid(
         columns = GridCells.Adaptive(108.dp),
         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
@@ -121,21 +149,94 @@ private fun AlbumGrid(all: List<Album>, query: String, onOpenAlbum: (Album) -> U
         verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        if (query.isNotEmpty() && albums.isEmpty() && songs.isEmpty()) {
+        val nothing = when (view) {
+            LibraryView.Albums -> albums.isEmpty() && songs.isEmpty()
+            LibraryView.Artists -> artists.isEmpty() && songs.isEmpty()
+            LibraryView.Songs -> songs.isEmpty()
+        }
+        if (query.isNotEmpty() && nothing) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Text("No results for “$query”.", fontSize = 13.sp, color = Palette.Sub, modifier = Modifier.padding(12.dp))
+            }
+        }
+        if (view == LibraryView.Artists && artists.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Artists (${artists.size})") }
+            items(artists.size, key = { "artist-" + artists[it].name }, span = { GridItemSpan(maxLineSpan) }) { i ->
+                ArtistRow(artists[i]) { onOpenArtist(artists[i].name) }
             }
         }
         if (songs.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Songs (${songs.size})") }
             items(songs.size, span = { GridItemSpan(maxLineSpan) }) { i ->
                 val hit = songs[i]
-                val track = hit.album.tracks[hit.index]
-                SongRow(track.title, "${track.artist} · ${hit.album.title}", formatTime(track.durationMs)) { onPlaySong(hit.album, hit.index) }
+                SongRow(hit.track.title, "${hit.track.artist} · ${hit.album.title}", formatTime(hit.track.durationMs)) {
+                    onPlaySong(hit.album, hit.index)
+                }
             }
         }
-        if (albums.isNotEmpty()) {
+        if (view == LibraryView.Albums && albums.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Albums (${albums.size})") }
+            items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
+        }
+    }
+}
+
+@Composable
+private fun ArtistRow(artist: ArtistEntry, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .explorerItem(selected = false, source = source, pressed = pressed, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // WMP stacks an artist's covers like a small pile of cases.
+        Box(Modifier.size(62.dp, 52.dp)) {
+            artist.albums.take(3).reversed().forEachIndexed { i, album ->
+                val depth = minOf(artist.albums.size, 3) - 1 - i
+                Artwork(
+                    album.artUri,
+                    Modifier
+                        .padding(start = (depth * 5).dp, top = ((2 - depth).coerceAtLeast(0) * 2).dp)
+                        .size(46.dp)
+                        .shadow(2.dp, RoundedCornerShape(1.dp)),
+                )
+            }
+        }
+        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+            Text(artist.name, fontSize = 13.5.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${artist.albums.size} album${if (artist.albums.size == 1) "" else "s"}, ${artist.songCount} songs",
+                fontSize = 11.5.sp, color = Palette.Sub,
+            )
+        }
+    }
+}
+
+@Composable
+fun ArtistScreen(
+    artist: String,
+    albums: List<Album>,
+    noSkipping: Boolean,
+    onOpenAlbum: (Album) -> Unit,
+    onPlayAll: (shuffle: Boolean) -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        CommandBar(trailing = "${albums.size} albums, ${albums.sumOf { it.tracks.size }} songs") {
+            Command("Play all") { onPlayAll(false) }
+            if (!noSkipping) Command("Shuffle") { onPlayAll(true) }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(108.dp),
+            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader(artist) }
             items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
         }
     }

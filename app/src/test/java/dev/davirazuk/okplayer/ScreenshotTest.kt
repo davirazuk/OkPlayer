@@ -21,6 +21,9 @@ import dev.davirazuk.okplayer.ui.LyricsState
 import dev.davirazuk.okplayer.ui.components.AeroWindow
 import dev.davirazuk.okplayer.ui.components.ControlBar
 import dev.davirazuk.okplayer.ui.components.Crumb
+import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.LibraryView
+import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
 import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
@@ -136,7 +139,7 @@ class ScreenshotTest {
     @Test
     fun library() = paparazzi.snapshot {
         Window("Paranoid Android - okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false) {
-            LibraryScreen(LibraryState.Ready(albums), "", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+            LibraryScreen(LibraryState.Ready(albums), LibraryView.Albums, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
         }
     }
 
@@ -159,16 +162,37 @@ class ScreenshotTest {
     }
 
     @Test
+    fun artists() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Artists", menu = listOf(MenuItem("Artists") {}))), dark = false) {
+            LibraryScreen(LibraryState.Ready(albums), LibraryView.Artists, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    @Test
+    fun songs() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Songs", menu = listOf(MenuItem("Songs") {}))), dark = false) {
+            LibraryScreen(LibraryState.Ready(albums), LibraryView.Songs, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    @Test
+    fun artist() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Artists"), Crumb("Radiohead")), dark = false) {
+            ArtistScreen("Radiohead", albums.filter { it.artist == "Radiohead" }, noSkipping = false, onOpenAlbum = {}, onPlayAll = {})
+        }
+    }
+
+    @Test
     fun search() = paparazzi.snapshot {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false) {
-            LibraryScreen(LibraryState.Ready(albums), "radio", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+            LibraryScreen(LibraryState.Ready(albums), LibraryView.Albums, "radio", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
         }
     }
 
     @Test
     fun needsPermission() = paparazzi.snapshot {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false, state = NowPlaying()) {
-            LibraryScreen(LibraryState.NeedsPermission, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+            LibraryScreen(LibraryState.NeedsPermission, LibraryView.Albums, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
         }
     }
 }

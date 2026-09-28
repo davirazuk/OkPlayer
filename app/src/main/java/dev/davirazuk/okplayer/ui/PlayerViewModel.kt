@@ -26,9 +26,13 @@ sealed interface LibraryState {
     data class Ready(val albums: List<Album>) : LibraryState
 }
 
+/** How the library is browsed, as in WMP's Artist / Album / Songs views. */
+enum class LibraryView(val label: String) { Artists("Artists"), Albums("Albums"), Songs("Songs") }
+
 sealed interface Screen {
     data object Library : Screen
     data class AlbumDetail(val albumId: Long) : Screen
+    data class ArtistDetail(val artist: String) : Screen
     data object NowPlaying : Screen
     data object Options : Screen
 }
@@ -57,6 +61,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _deckView = MutableStateFlow(DeckView.Disc)
     val deckView: StateFlow<DeckView> = _deckView.asStateFlow()
+
+    private val _libraryView = MutableStateFlow(LibraryView.Albums)
+    val libraryView: StateFlow<LibraryView> = _libraryView.asStateFlow()
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
@@ -148,8 +155,25 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         open(Screen.NowPlaying)
     }
 
+    fun setLibraryView(view: LibraryView) {
+        _libraryView.value = view
+        backStack.clear()
+        _screen.value = Screen.Library
+    }
+
     fun setQuery(text: String) {
         _query.value = text
+    }
+
+    fun artistAlbums(artist: String): List<Album> =
+        (library.value as? LibraryState.Ready)?.albums?.filter { it.artist == artist }.orEmpty()
+
+    fun playArtist(artist: String, shuffle: Boolean) {
+        val tracks = artistAlbums(artist).flatMap { it.tracks }
+        if (tracks.isEmpty()) return
+        connection.play(tracks.map { it.toMediaItem() }, 0, shuffle && !noSkipping.value)
+        _deckView.value = DeckView.Disc
+        open(Screen.NowPlaying)
     }
 
     fun playAt(index: Int) {

@@ -51,14 +51,23 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.ui.draw.shadow
 import coil.compose.SubcomposeAsyncImage
 import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
 
 /* ---------------- window frame ---------------- */
 
-data class Crumb(val label: String, val onClick: (() -> Unit)? = null)
+data class MenuItem(val label: String, val checked: Boolean = false, val onClick: () -> Unit)
+
+/** A breadcrumb segment. With a [menu], tapping it opens a drop-down like Explorer's. */
+data class Crumb(val label: String, val onClick: (() -> Unit)? = null, val menu: List<MenuItem> = emptyList())
 
 /**
  * The Aero window every screen lives in: title bar, glass toolbar with back and
@@ -164,18 +173,73 @@ private fun Toolbar(crumbs: List<Crumb>, canGoBack: Boolean, onBack: () -> Unit)
             crumbs.forEachIndexed { i, crumb ->
                 if (i > 0) Text("▸", fontSize = 9.sp, color = Color(0xFF8A9AAC), modifier = Modifier.padding(horizontal = 5.dp))
                 val last = i == crumbs.lastIndex
-                Text(
-                    crumb.label,
-                    fontSize = 12.5.sp,
-                    color = Color(0xFF333333),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .then(if (last) Modifier.weight(1f, fill = false) else Modifier)
-                        .clip(RoundedCornerShape(2.dp))
-                        .then(if (crumb.onClick != null) Modifier.clickable(onClick = crumb.onClick) else Modifier)
-                        .padding(horizontal = 2.dp, vertical = 2.dp),
-                )
+                var open by remember { mutableStateOf(false) }
+                val action: (() -> Unit)? = when {
+                    crumb.menu.isNotEmpty() -> ({ open = true })
+                    else -> crumb.onClick
+                }
+                Box(if (last) Modifier.weight(1f, fill = false) else Modifier) {
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(2.dp))
+                            .then(if (open) Modifier.background(Palette.Hover).border(1.dp, Palette.HoverEdge, RoundedCornerShape(2.dp)) else Modifier)
+                            .then(if (action != null) Modifier.clickable(onClick = action) else Modifier)
+                            .padding(horizontal = 3.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(crumb.label, fontSize = 12.5.sp, color = Color(0xFF333333), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (crumb.menu.isNotEmpty()) Text(" ▾", fontSize = 10.sp, color = Color(0xFF55667A))
+                    }
+                    if (open) Win7Menu(crumb.menu, onDismiss = { open = false })
+                }
+            }
+        }
+    }
+}
+
+/** Windows 7 context menu: white, grey border, soft shadow, blue selection, check marks. */
+@Composable
+fun Win7Menu(items: List<MenuItem>, onDismiss: () -> Unit) {
+    val below = with(LocalDensity.current) { 26.dp.roundToPx() }
+    Popup(
+        offset = IntOffset(0, below),
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Column(
+            Modifier
+                .shadow(6.dp)
+                .background(Color(0xFFF0F0F0))
+                .border(1.dp, Color(0xFF979797))
+                .padding(2.dp)
+                .width(IntrinsicSize.Max),
+        ) {
+            items.forEach { item ->
+                val source = remember { MutableInteractionSource() }
+                val pressed by source.collectIsPressedAsState()
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .then(
+                            if (pressed) Modifier
+                                .background(Brush.verticalGradient(listOf(Color(0xFFF2F7FD), Color(0xFFDDEBFA))))
+                                .border(1.dp, Color(0xFFAECFF7), RoundedCornerShape(3.dp))
+                            else Modifier,
+                        )
+                        .clickable(interactionSource = source, indication = null) {
+                            onDismiss()
+                            item.onClick()
+                        }
+                        .padding(end = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.width(30.dp), contentAlignment = Alignment.Center) {
+                        if (item.checked) Text("●", fontSize = 8.sp, color = Color(0xFF1C3B6E))
+                    }
+                    Text(item.label, fontSize = 13.sp, color = Color.Black, maxLines = 1)
+                }
             }
         }
     }
