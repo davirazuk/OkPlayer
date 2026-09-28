@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- **PS Vita version** (`okplayer-vita-*.vpk`, install with VitaShell): album folders
+  from `ux0:music` with covers and tags, FLAC / MP3 / WAV / Ogg, the spinning disc
+  and LCD, Up next, D-pad and touch controls, shuffle, No skipping, and reopening
+  where you left off.
+- **Desktop version** for Windows (portable `.exe`) and Linux (AppImage): the player
+  in a frameless window whose Aero title bar is the real window frame.
+- Android: okplayer's disc in the status bar and notification, and a preview of the
+  widget in the widget picker.
+
 ## 0.3.0
 
 - **Home screen widget** in the style of WMP 12's mini player: cover, title,
