@@ -47,6 +47,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -63,7 +65,7 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
@@ -155,9 +157,60 @@ private fun CaptionButtons(modifier: Modifier) {
     val glass = Brush.verticalGradient(0f to Color(0xFFEEF4FA), 0.48f to Color(0xFFC3D6E8), 0.52f to Color(0xFFA9C1D8), 1f to Color(0xFFD4E3F1))
     val close = Brush.verticalGradient(0f to Color(0xFFE9A597), 0.48f to Color(0xFFD4583F), 0.52f to Color(0xFFC23B22), 1f to Color(0xFFE48A6B))
     Row(modifier) {
-        Box(Modifier.size(26.dp, 18.dp).clip(RoundedCornerShape(bottomStart = 4.dp)).background(glass).border(1.dp, edge, RoundedCornerShape(bottomStart = 4.dp)))
-        Box(Modifier.size(26.dp, 18.dp).background(glass).border(1.dp, edge))
-        Box(Modifier.size(44.dp, 18.dp).clip(RoundedCornerShape(bottomEnd = 4.dp)).background(close).border(1.dp, edge, RoundedCornerShape(bottomEnd = 4.dp)))
+        Box(Modifier.size(26.dp, 18.dp).clip(RoundedCornerShape(bottomStart = 4.dp)).background(glass).border(1.dp, edge, RoundedCornerShape(bottomStart = 4.dp))) {
+            CaptionGlyph(CaptionKind.Minimize)
+        }
+        Box(Modifier.size(26.dp, 18.dp).background(glass).border(1.dp, edge)) { CaptionGlyph(CaptionKind.Maximize) }
+        Box(Modifier.size(44.dp, 18.dp).clip(RoundedCornerShape(bottomEnd = 4.dp)).background(close).border(1.dp, edge, RoundedCornerShape(bottomEnd = 4.dp))) {
+            CaptionGlyph(CaptionKind.Close)
+        }
+    }
+}
+
+private enum class CaptionKind { Minimize, Maximize, Close }
+
+/** Windows 7's caption glyphs: white shapes with a dark outline, drawn so no font can swap them. */
+@Composable
+private fun BoxScope.CaptionGlyph(kind: CaptionKind) {
+    val ink = Color(0xFF303B48)
+    Canvas(Modifier.matchParentSize()) {
+        val u = 1.dp.toPx()
+        val c = Offset(size.width / 2, size.height / 2 - 0.5f * u)
+        when (kind) {
+            CaptionKind.Minimize -> {
+                drawRect(ink, Offset(c.x - 4.5f * u, c.y + 1.5f * u), Size(9 * u, 4 * u))
+                drawRect(Color.White, Offset(c.x - 3.5f * u, c.y + 2.5f * u), Size(7 * u, 2 * u))
+            }
+            CaptionKind.Maximize -> {
+                drawRect(ink, Offset(c.x - 5 * u, c.y - 4.5f * u), Size(10 * u, 9 * u))
+                drawRect(Color.White, Offset(c.x - 4 * u, c.y - 3.5f * u), Size(8 * u, 7 * u))
+                drawRect(ink, Offset(c.x - 2.5f * u, c.y - 1 * u), Size(5 * u, 4 * u))
+                drawRect(Color(0xFFBBCFE2), Offset(c.x - 1.5f * u, c.y), Size(3 * u, 2 * u))
+            }
+            CaptionKind.Close -> {
+                val r = 3.5f * u
+                listOf(ink to 3.6f * u, Color.White to 1.8f * u).forEach { (color, width) ->
+                    drawLine(color, Offset(c.x - r, c.y - r), Offset(c.x + r, c.y + r), width, StrokeCap.Square)
+                    drawLine(color, Offset(c.x + r, c.y - r), Offset(c.x - r, c.y + r), width, StrokeCap.Square)
+                }
+            }
+        }
+    }
+}
+
+/** The small triangles Explorer uses in its address bar, drawn rather than typed. */
+@Composable
+private fun CrumbArrow(down: Boolean, color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier.size(if (down) 7.dp else 5.dp, if (down) 4.dp else 7.dp)) {
+        val path = Path().apply {
+            if (down) {
+                moveTo(0f, 0f); lineTo(size.width, 0f); lineTo(size.width / 2, size.height)
+            } else {
+                moveTo(0f, 0f); lineTo(size.width, size.height / 2); lineTo(0f, size.height)
+            }
+            close()
+        }
+        drawPath(path, color)
     }
 }
 
@@ -180,7 +233,7 @@ private fun Toolbar(crumbs: List<Crumb>, canGoBack: Boolean, onBack: () -> Unit)
             verticalAlignment = Alignment.CenterVertically,
         ) {
             crumbs.forEachIndexed { i, crumb ->
-                if (i > 0) Text("▸", fontSize = 9.sp, color = Color(0xFF8A9AAC), modifier = Modifier.padding(horizontal = 5.dp))
+                if (i > 0) CrumbArrow(down = false, color = Color(0xFF8A9AAC), modifier = Modifier.padding(horizontal = 6.dp))
                 val last = i == crumbs.lastIndex
                 var open by remember { mutableStateOf(false) }
                 val action: (() -> Unit)? = when {
@@ -197,7 +250,7 @@ private fun Toolbar(crumbs: List<Crumb>, canGoBack: Boolean, onBack: () -> Unit)
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(crumb.label, fontSize = 12.5.sp, color = Color(0xFF333333), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (crumb.menu.isNotEmpty()) Text(" ▾", fontSize = 10.sp, color = Color(0xFF55667A))
+                        if (crumb.menu.isNotEmpty()) CrumbArrow(down = true, color = Color(0xFF55667A), modifier = Modifier.padding(start = 4.dp))
                     }
                     if (open) Win7Menu(crumb.menu, onDismiss = { open = false })
                 }
@@ -245,7 +298,9 @@ fun Win7Menu(items: List<MenuItem>, onDismiss: () -> Unit, offsetY: Dp = 26.dp) 
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.width(30.dp), contentAlignment = Alignment.Center) {
-                        if (item.checked) Text("●", fontSize = 8.sp, color = Color(0xFF1C3B6E))
+                        if (item.checked) {
+                            Box(Modifier.size(7.dp).background(Brush.radialGradient(listOf(Color(0xFF6D9AD0), Color(0xFF1C3B6E))), CircleShape))
+                        }
                     }
                     Text(item.label, fontSize = 13.sp, color = Color.Black, maxLines = 1)
                 }
@@ -451,39 +506,36 @@ fun Stars(rating: Int, modifier: Modifier = Modifier, size: Dp = 12.dp, off: Col
  * Cover art. Albums without art get a cover of their own: a gradient in a colour
  * derived from [name] with its first letter, so they stay tellable apart.
  */
+/**
+ * Album art over a generated cover (a colour from the name and its first letter).
+ * The generated cover is always drawn underneath, so a missing or broken image
+ * never leaves an empty box, and real art fades in over it.
+ */
 @Composable
 fun Artwork(uri: Uri?, modifier: Modifier = Modifier, name: String? = null) {
-    val placeholder: @Composable () -> Unit = {
-        if (name.isNullOrBlank()) {
-            Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(0xFFB9C6D6), Color(0xFF7E8FA5)))))
-        } else {
-            val hue = ((name.hashCode() % 360) + 360) % 360f
-            BoxWithConstraints(
-                Modifier
-                    .fillMaxSize()
-                    .background(Brush.linearGradient(listOf(Color.hsv(hue, 0.45f, 0.72f), Color.hsv((hue + 40) % 360, 0.6f, 0.32f)))),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    name.trim().first().uppercase(),
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontSize = (maxWidth.value * 0.42f).sp,
-                    fontWeight = FontWeight.Light,
-                )
-            }
-        }
-    }
-    if (uri == null) {
-        Box(modifier) { placeholder() }
+    val hue = ((((name ?: "").hashCode()) % 360) + 360) % 360f
+    val brush = if (name.isNullOrBlank()) {
+        Brush.linearGradient(listOf(Color(0xFFB9C6D6), Color(0xFF7E8FA5)))
     } else {
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(250).build(),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = modifier,
-            loading = { placeholder() },
-            error = { placeholder() },
-        )
+        Brush.linearGradient(listOf(Color.hsv(hue, 0.45f, 0.72f), Color.hsv((hue + 40) % 360, 0.6f, 0.32f)))
+    }
+    BoxWithConstraints(modifier.background(brush), contentAlignment = Alignment.Center) {
+        if (!name.isNullOrBlank()) {
+            Text(
+                name.trim().first().uppercase(),
+                color = Color.White.copy(alpha = 0.9f),
+                fontSize = (maxWidth.value * 0.42f).sp,
+                fontWeight = FontWeight.Light,
+            )
+        }
+        if (uri != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(250).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+            )
+        }
     }
 }
 
