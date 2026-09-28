@@ -441,6 +441,10 @@ function prev(){if(audio.currentTime>3){audio.currentTime=0;return}if(prefs.lock
 $("play").onclick=()=>{if(!queue.length){playDemo();return}setupAudio();actx?.resume();audio.paused?audio.play():audio.pause()};
 $("next").onclick=()=>next(false);$("prev").onclick=prev;
 audio.onended=()=>{unlocked=true;next(true)};
+audio.onerror=()=>{const t=queue[qi];if(!t||!audio.src)return;
+  const ext=(t.file||"").split(".").pop().toUpperCase();
+  toast(`Couldn't play “${t.title}”: this browser can't decode ${ext==="M4A"?"this M4A (it may be ALAC)":"this "+ext+" file"}. The Android app can.`,5000);
+  unlocked=true;if(qi+1<queue.length)load(qi+1,true)};
 audio.onplay=audio.onpause=()=>{const on=!audio.paused;$("disc").classList.toggle("on",on);$("play").innerHTML=on?ICON_PAUSE:ICON_PLAY;$("play").setAttribute("aria-label",on?"Pause":"Play");if("mediaSession" in navigator)navigator.mediaSession.playbackState=on?"playing":"paused"};
 audio.onloadedmetadata=()=>{const t=queue[qi];if(t&&!t.dur&&isFinite(audio.duration)){t.dur=audio.duration;const l=lib.find(x=>x.id===t.id);if(l){l.dur=t.dur;saveLib()}}$("tLen").textContent=fmt(audio.duration);if(queue[qi]&&isFinite(audio.duration))fetchLyrics(queue[qi],audio.duration)};
 audio.ontimeupdate=()=>{if(seeking)return;const d=audio.duration||0,p=d?audio.currentTime/d*1000:0;$("seek").value=p;$("seek").style.setProperty("--p",p/10+"%");$("tNow").textContent=fmt(audio.currentTime);$("tNowLcd").textContent=fmt(audio.currentTime);tickLyrics();
