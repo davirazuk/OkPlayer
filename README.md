@@ -93,6 +93,13 @@ With a USB DAC connected and **Hi-res output to USB DACs** on (the default):
 Bit-perfect needs a phone whose audio HAL supports it; not every manufacturer enables
 it.
 
+## PS Vita version
+
+`vita/` is a homebrew build for the PS Vita with the same look: album folders from
+`ux0:music`, FLAC / MP3 / WAV / Ogg, the spinning disc and LCD, and D-pad or touch
+controls. Releases include `okplayer-vita-*.vpk` for VitaShell. See
+[vita/README.md](vita/README.md).
+
 ## Web version
 
 `web/` is a browser version with the same design: add files or a folder, and they're
@@ -125,7 +132,6 @@ web/          browser version (installable PWA)
 - Search, artists and genres, folder browsing for files outside the media library
 - Embedded and sidecar `.lrc` lyrics
 - Desktop build (Windows, Linux)
-- PS Vita homebrew version (VitaSDK) for local FLAC/MP3 with covers
 - Qobuz streaming, pending API access from Qobuz
 
 ## Credits

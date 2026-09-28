@@ -36,3 +36,22 @@ jobs:
           name: okplayer ${{ inputs.version }}
           body_path: notes.md
           files: okplayer-v${{ inputs.version }}.apk
+
+  vita:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch decoders
+        run: vita/tools/fetch_decoders.sh
+      - name: Build in the VitaSDK image
+        run: |
+          docker run --rm -v "$PWD/vita:/work" -w /work vitasdk/vitasdk:latest /bin/sh -c \
+            'cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j4'
+          cp vita/build/okplayer.vpk "okplayer-vita-v${{ inputs.version }}.vpk"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          files: okplayer-vita-v${{ inputs.version }}.vpk

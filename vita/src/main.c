@@ -383,7 +383,7 @@ static void draw_now(const PlayerStatus *st) {
     rect(lx, ly, lw, 6, RGBA8(0, 0, 0, 120));
 
     int ai = cur_album, si = cur_song;
-    char num[8], tbuf[16], title[160], sub[200];
+    char num[16], tbuf[16], title[160], sub[200];
     if (st->index >= 0) snprintf(num, sizeof num, "%02d", st->index + 1);
     else strcpy(num, "--");
     if (st->index >= 0) fmt_time(tbuf, sizeof tbuf, st->position_ms);

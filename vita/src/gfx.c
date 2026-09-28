@@ -249,8 +249,10 @@ vita2d_texture *cover_load(const char *path, int size) {
     vita2d_texture *src = is_png(path) ? vita2d_load_PNG_file(path) : vita2d_load_JPEG_file(path);
     if (!src) return NULL;
     int sw = vita2d_texture_get_width(src), sh = vita2d_texture_get_height(src);
-    uint32_t *sp = pixels(src);
-    unsigned sp_pitch = pitch(src);
+    const uint8_t *sp = (const uint8_t *)vita2d_texture_get_datap(src);
+    unsigned stride = vita2d_texture_get_stride(src);
+    /* PNGs load as 4 bytes per pixel, JPEGs as 3 (R, G, B in memory either way). */
+    unsigned bpp = vita2d_texture_get_format(src) == SCE_GXM_TEXTURE_FORMAT_U8U8U8_BGR ? 3 : 4;
     vita2d_texture *dst = vita2d_create_empty_texture(size, size);
     uint32_t *dp = pixels(dst);
     unsigned dp_pitch = pitch(dst);
@@ -267,8 +269,8 @@ vita2d_texture *cover_load(const char *path, int size) {
                 for (int i = 0; i < box; i++) {
                     int px = bx + i, py = by + j;
                     if (px >= sw || py >= sh) continue;
-                    uint32_t c = sp[py * sp_pitch + px];
-                    r += c & 0xFF; g += (c >> 8) & 0xFF; b += (c >> 16) & 0xFF; n++;
+                    const uint8_t *c = sp + py * stride + px * bpp;
+                    r += c[0]; g += c[1]; b += c[2]; n++;
                 }
             if (!n) n = 1;
             dp[y * dp_pitch + x] = RGBA8(r / n, g / n, b / n, 255);
