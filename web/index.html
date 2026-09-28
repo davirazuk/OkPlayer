@@ -45,6 +45,12 @@ svg{display:block}
 .caption i{width:26px;height:18px;border:1px solid rgba(30,50,70,.6);border-top:0;background:linear-gradient(#eef4fa,#c3d6e8 48%,#a9c1d8 52%,#d4e3f1)}
 .caption i:first-child{border-radius:0 0 0 4px}
 .caption i.x{width:44px;border-radius:0 0 4px 0;background:linear-gradient(#e9a597,#d4583f 48%,#c23b22 52%,#e48a6b)}
+/* In the desktop app the page is the whole window: the title bar drags it and the caption buttons work. */
+body.desktop .win{max-width:none;height:100%;margin:0;border-radius:0;padding-top:0}
+body.desktop .title{-webkit-app-region:drag}
+body.desktop .caption i{-webkit-app-region:no-drag;cursor:default}
+body.desktop .caption i:hover{filter:brightness(1.12)}
+body.desktop .caption i.x:hover{background:linear-gradient(#f3b8a8,#e26448 48%,#d2432a 52%,#ef9a7b)}
 
 /* ---- toolbar (glass, part of the frame) ---- */
 .toolbar{flex:none;display:flex;align-items:center;gap:6px;padding:2px 2px 6px}
@@ -201,7 +207,7 @@ button:focus-visible{outline:1px dotted currentColor;outline-offset:2px}
 </head>
 <body>
 <div class="win">
-  <header class="title"><i class="ico"></i><span id="winTitle">okplayer</span><div class="caption" aria-hidden="true"><i></i><i></i><i class="x"></i></div></header>
+  <header class="title"><i class="ico"></i><span id="winTitle">okplayer</span><div class="caption" aria-hidden="true"><i data-act="minimize"></i><i data-act="maximize"></i><i class="x" data-act="close"></i></div></header>
   <nav class="toolbar">
     <button class="navbtn" id="navBack" aria-label="Back"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
     <button class="navbtn" id="navFwd" aria-label="Forward" disabled><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg></button>
@@ -584,6 +590,11 @@ function draw(){
   if(!still)requestAnimationFrame(draw);
 }
 draw();if(still)setInterval(draw,1000);
+
+/* ---------- desktop app ---------- */
+if(window.okDesktop){document.body.classList.add("desktop");
+  document.querySelectorAll(".caption i").forEach(b=>b.onclick=()=>window.okDesktop[b.dataset.act]());
+  $("winTitle").addEventListener("dblclick",()=>window.okDesktop.maximize())}
 
 /* ---------- boot ---------- */
 (async()=>{

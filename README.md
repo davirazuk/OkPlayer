@@ -100,6 +100,16 @@ it.
 controls. Releases include `okplayer-vita-*.vpk` for VitaShell. See
 [vita/README.md](vita/README.md).
 
+## Desktop version
+
+`desktop/` wraps the web player in Electron as a frameless window: its Aero title
+bar is the window's frame, with working minimize, maximize and close. CI builds a
+Windows `.exe` (portable, no install) and a Linux AppImage; releases include both.
+
+```
+cd desktop && npm install && npm start
+```
+
 ## Web version
 
 `web/` is a browser version with the same design: add files or a folder, and they're
