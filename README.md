@@ -51,16 +51,21 @@ over the old one and keeps your library, ratings and settings.
 
 ## Hi-res and bit-perfect
 
-| Source | Hi-res output off | Hi-res output on (default) |
-| --- | --- | --- |
-| 16-bit | bit-perfect if the DAC takes 16-bit at that rate | bit-perfect if the DAC takes float at that rate |
-| 24-bit | reduced to 16-bit | bit-perfect if the DAC takes float at that rate |
+Phone speakers and Bluetooth always get standard 16-bit PCM from the phone's own
+decoders, the path every Android phone handles well.
 
-32-bit float carries 16- and 24-bit samples exactly, so the float path is still
-bit-perfect. Hi-res output takes effect the next time playback starts.
+With a USB DAC connected and **Hi-res output to USB DACs** on (the default):
 
-Bit-perfect needs Android 14+ and a phone whose audio HAL supports it; not every
-manufacturer enables it. When it's unavailable the reason is shown.
+- FLAC and ALAC are decoded by FFmpeg, whose output is sample-exact, and 24-bit files
+  reach the DAC at full resolution as 32-bit float, which carries 16- and 24-bit
+  samples exactly.
+- On Android 14+, okplayer asks for a bit-perfect mixer at the file's sample rate
+  and format. The LCD lights **USB** and **BIT-PERFECT** when that's in effect;
+  otherwise the line under the deck says why, and Options lists the rates your DAC
+  accepts in bit-perfect mode.
+
+Bit-perfect needs a phone whose audio HAL supports it; not every manufacturer enables
+it.
 
 ## Web version
 

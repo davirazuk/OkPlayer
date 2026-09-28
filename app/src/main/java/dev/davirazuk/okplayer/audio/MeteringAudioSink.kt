@@ -1,24 +1,39 @@
 package dev.davirazuk.okplayer.audio
 
+import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import java.nio.ByteBuffer
 
 /**
- * Sits in front of the real sink. It reports the decoded PCM format to the DAC router
- * before the audio track opens, and lets the level meter peek at each buffer.
+ * Sits in front of the real sink (built with float output enabled) and does three jobs:
  *
- * This replaces an audio processor tap, because ExoPlayer skips audio processors when
- * it outputs float, which is exactly the hi-res path.
+ * - Offers float PCM only while [floatAllowed] says so, which is when a USB DAC is
+ *   connected and hi-res output is on. Decoders ask the sink before choosing their
+ *   output format, so everywhere else they stay on plain 16-bit, the path every phone
+ *   decoder handles well.
+ * - Reports the decoded PCM format to the DAC router before the audio track opens.
+ * - Lets the level meter peek at each buffer. An audio processor tap would miss the
+ *   float path, because ExoPlayer skips processors there.
  */
 class MeteringAudioSink(
     sink: AudioSink,
+    private val floatAllowed: () -> Boolean,
     private val onPcmFormat: (sampleRate: Int, encoding: Int) -> Unit,
 ) : ForwardingAudioSink(sink) {
 
     private var lastBuffer: ByteBuffer? = null
     private var lastPosition = -1
+
+    override fun getFormatSupport(format: Format): Int {
+        if (isFloatPcm(format) && !floatAllowed()) return AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING
+        return super.getFormatSupport(format)
+    }
+
+    override fun supportsFormat(format: Format): Boolean =
+        getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         onPcmFormat(inputFormat.sampleRate, inputFormat.pcmEncoding)
@@ -42,4 +57,7 @@ class MeteringAudioSink(
         LevelMeter.reset()
         super.flush()
     }
+
+    private fun isFloatPcm(format: Format) =
+        MimeTypes.AUDIO_RAW == format.sampleMimeType && format.pcmEncoding == C.ENCODING_PCM_FLOAT
 }

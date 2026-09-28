@@ -34,8 +34,9 @@ fun OptionsScreen(
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 20.dp)) {
         GroupHeader("Playback")
         Option(
-            hiResOutput, onHiRes, "Hi-res output",
-            "Sends 24-bit files to a USB DAC without cutting them to 16-bit. Applies the next time okplayer starts playing.",
+            hiResOutput, onHiRes, "Hi-res output to USB DACs",
+            "With a USB DAC connected, sends 24-bit files at full resolution and decodes FLAC and ALAC with FFmpeg. " +
+                "Phone speakers and Bluetooth always get standard 16-bit.",
         )
         Option(
             noSkipping, onNoSkipping, "No skipping",

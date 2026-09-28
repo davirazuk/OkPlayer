@@ -73,6 +73,11 @@ class UsbDacRouter(context: Context, private val attributes: PlatformAudioAttrib
     private val handler = Handler(Looper.getMainLooper())
 
     private var usbDevice: AudioDeviceInfo? = null
+
+    /** Whether a USB DAC is the current output; read from the playback thread. */
+    @Volatile
+    var usbConnected = false
+        private set
     private var pcmRate: Int? = null
     private var pcmEncoding: Int = C.ENCODING_INVALID
     private var hasTrack = false
@@ -117,6 +122,7 @@ class UsbDacRouter(context: Context, private val attributes: PlatformAudioAttrib
     private fun refreshDevice() {
         usbDevice = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_DEVICE }
+        usbConnected = usbDevice != null
         apply()
     }
 

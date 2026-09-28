@@ -11,6 +11,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
@@ -70,11 +71,13 @@ class PlaybackService : MediaSessionService() {
             .build()
         router = UsbDacRouter(this, attributes.audioAttributesV21.audioAttributes)
 
-        // Read once per service start; Options says the change applies next time.
-        val floatOutput = Preferences.hiResOutput.value
+        // Float output only while a USB DAC is connected with hi-res on; see MeteringAudioSink.
+        val hiResToDac = { Preferences.hiResOutput.value && router.usbConnected }
+        DecoderPolicy.hiResToDac = hiResToDac
         val sink = MeteringAudioSink(
-            DefaultAudioSink.Builder(this).setEnableFloatOutput(floatOutput).build(),
-        ) { rate, encoding -> router.onOutputPcm(rate, outputEncoding(encoding, floatOutput)) }
+            DefaultAudioSink.Builder(this).setEnableFloatOutput(true).build(),
+            floatAllowed = hiResToDac,
+        ) { rate, encoding -> router.onOutputPcm(rate, outputEncoding(encoding)) }
 
         val renderers = RenderersFactory { handler, _, audioListener, _, _ ->
             arrayOf<Renderer>(
@@ -247,13 +250,23 @@ class PlaybackService : MediaSessionService() {
     }
 }
 
-/** Formats the phone's decoders get wrong, sent to FFmpeg instead. Lives as long as the process. */
+/**
+ * Decides which formats skip the phone's decoders for FFmpeg:
+ * everything when the user asks for it, lossless formats while hi-res goes to a USB DAC
+ * (FFmpeg's FLAC and ALAC output is exact, and phone decoders vary in float mode), and
+ * any format whose phone decoder has already failed this session.
+ */
 object DecoderPolicy {
     val forcedBuiltIn: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf())
 
+    @Volatile
+    var hiResToDac: () -> Boolean = { false }
+
+    private val lossless = setOf(MimeTypes.AUDIO_FLAC, MimeTypes.AUDIO_ALAC)
+
     fun useBuiltIn(mime: String?): Boolean {
         if (mime == null || !FfmpegLibrary.isAvailable() || !FfmpegLibrary.supportsFormat(mime)) return false
-        return Preferences.builtInDecoder.value || mime in forcedBuiltIn
+        return Preferences.builtInDecoder.value || mime in forcedBuiltIn || (mime in lossless && hiResToDac())
     }
 }
 
@@ -269,10 +282,9 @@ private class PlatformAudioRenderer(
         else super.supportsFormat(mediaCodecSelector, format)
 }
 
-/** What DefaultAudioSink ends up writing to the audio track for a given decoder output. */
-private fun outputEncoding(input: Int, floatOutput: Boolean): Int = when (input) {
-    C.ENCODING_PCM_24BIT, C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT ->
-        if (floatOutput) C.ENCODING_PCM_FLOAT else C.ENCODING_PCM_16BIT
+/** What DefaultAudioSink (float output enabled) writes to the audio track for a decoder output. */
+private fun outputEncoding(input: Int): Int = when (input) {
+    C.ENCODING_PCM_24BIT, C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> C.ENCODING_PCM_FLOAT
     else -> C.ENCODING_PCM_16BIT
 }
 
