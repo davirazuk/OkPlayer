@@ -4,6 +4,21 @@ A local music player for Android that looks and feels like Windows Media Player 
 on Windows 7, built for playing albums the way they were sequenced and for getting
 them to a USB DAC untouched.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlaying.png" width="24%" alt="Now Playing: the CD deck and LCD">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingLyrics.png" width="24%" alt="Synced lyrics">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_library.png" width="24%" alt="Album library">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_album.png" width="24%" alt="Album with ratings">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingEqualizer.png" width="24%" alt="Graphic equalizer">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_artists.png" width="24%" alt="Artists">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingPlayList.png" width="24%" alt="Play list">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_options.png" width="24%" alt="Options">
+</p>
+
+<sub>Rendered from the code on every push (sample library, placeholder covers).</sub>
+
 ## Features
 
 **Playback**
@@ -33,8 +48,19 @@ them to a USB DAC untouched.
 - Tabs switch the deck to **Lyrics** (synced, auto-scrolling) or the **Play list**.
 
 **Library**
-- Albums from the phone's media library, with covers, in an Explorer-style grid.
+- Albums from the phone's media library in an Explorer-style grid. The breadcrumb
+  switches between Artists, Albums, Songs and the auto playlists Recently added,
+  Most played and Recently played.
 - Album view with track numbers, lengths and 1–5 star ratings.
+- Search box, and long-press menus to play a song or album next or add it to
+  Now Playing.
+- Albums without artwork get a generated cover instead of a grey square.
+
+**Extras**
+- Graphic equalizer with presets, after WMP's Enhancements panel (off by default,
+  since it isn't bit-perfect).
+- Sleep timer that fades out before pausing.
+- The black control bar shows what's playing while you browse.
 
 **Lyrics**
 - Synced or plain lyrics from [LRCLIB](https://lrclib.net), a free and open lyrics
