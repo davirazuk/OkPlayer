@@ -25,6 +25,7 @@ add_executable(${PROJECT_NAME}
   src/gfx.c
   src/library.c
   src/player.c
+  src/tags.c
   src/decoders.c
 )
 

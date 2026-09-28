@@ -13,6 +13,7 @@ typedef struct {
     char *cover_path;  /* cover.jpg / folder.jpg / front.png ..., or NULL */
     Song *songs;
     int song_count;
+    int tagged;        /* tags read yet (done when the album is first opened or played) */
 } Album;
 
 typedef struct {
@@ -27,5 +28,8 @@ extern const char *const LIBRARY_ROOTS[];
 /* Scans the roots (a few levels deep); albums sorted by artist then title. */
 void library_scan(Library *lib);
 void library_free(Library *lib);
+
+/* Replaces file-name titles and folder names with the files' tags, and re-sorts by track. */
+void library_load_tags(Album *album);
 
 #endif

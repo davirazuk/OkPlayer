@@ -1,4 +1,5 @@
 #include "library.h"
+#include "tags.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -125,6 +126,7 @@ static void scan_dir(AlbumList *out, const char *dir, const char *parent_name, i
         a->cover_path = cover;
         a->songs = songs;
         a->song_count = song_count;
+        a->tagged = 0;
         out->songs += song_count;
     } else {
         free(cover);
@@ -145,6 +147,32 @@ void library_scan(Library *lib) {
     lib->albums = list.items;
     lib->count = list.count;
     lib->song_total = list.songs;
+}
+
+void library_load_tags(Album *album) {
+    if (album->tagged) return;
+    album->tagged = 1;
+    int got_album = 0;
+    for (int i = 0; i < album->song_count; i++) {
+        Song *s = &album->songs[i];
+        Tags t;
+        if (!tags_read(s->path, &t)) continue;
+        if (t.title[0]) {
+            free(s->title);
+            s->title = strdup(t.title);
+        }
+        if (t.track > 0) s->number = (t.disc > 1 ? t.disc * 1000 : 0) + t.track;
+        if (!got_album && t.album[0]) {
+            free(album->title);
+            album->title = strdup(t.album);
+            if (t.artist[0]) {
+                free(album->artist);
+                album->artist = strdup(t.artist);
+            }
+            got_album = 1;
+        }
+    }
+    qsort(album->songs, album->song_count, sizeof(Song), song_cmp);
 }
 
 void library_free(Library *lib) {

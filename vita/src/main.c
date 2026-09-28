@@ -173,6 +173,7 @@ static void ensure_label(int album) {
 
 static void play_album(int album, int start, int shuffle) {
     Album *a = &lib.albums[album];
+    library_load_tags(a);
     const char **paths = malloc(sizeof(char *) * a->song_count);
     for (int i = 0; i < a->song_count; i++) paths[i] = a->songs[i].path;
     player_set_shuffle(shuffle);
@@ -338,7 +339,8 @@ static void draw_album(const PlayerStatus *st) {
             frame(list_x, y, list_w, ROW_H - 2, C_SEL_EDGE);
         }
         char num[8];
-        snprintf(num, sizeof num, "%d", a->songs[i].number ? a->songs[i].number : i + 1);
+        int n = a->songs[i].number % 1000;
+        snprintf(num, sizeof num, "%d", n ? n : i + 1);
         text(list_x + 10, y + 21, C_SUB, 0.78f, num);
         if (playing && st->state != PLAYER_STOPPED) triangle_right(list_x + list_w - 22, y + 9, 12, C_AERO);
         text_fit(list_x + 48, y + 21, playing ? C_HEAD : C_INK, 0.8f, a->songs[i].title, list_w - 80);
@@ -449,6 +451,7 @@ static void keep_visible_list(void) {
 }
 
 static void open_album_view(int album) {
+    library_load_tags(&lib.albums[album]);
     open_album = album;
     sel_track = 0;
     track_scroll = 0;
