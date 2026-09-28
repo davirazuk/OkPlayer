@@ -39,7 +39,7 @@ import kotlin.math.sin
 
 @Composable
 fun Artwork(uri: Uri?, modifier: Modifier = Modifier) {
-    val placeholder = @Composable {
+    val placeholder: @Composable () -> Unit = {
         Box(
             Modifier
                 .fillMaxSize()
