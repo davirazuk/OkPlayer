@@ -12,7 +12,10 @@ object Glyphs {
     val Pause = icon("Pause", "M6 19h4V5H6v14zm8-14v14h4V5h-4z")
     val Next = icon("Next", "M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z")
     val Previous = icon("Previous", "M6 6h2v12H6zm3.5 6l8.5 6V6z")
-    val Back = icon("Back", "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z")
+    val Back = icon("Back", "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z")
+    val Forward = icon("Forward", "M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z")
+    val Star = icon("Star", "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z")
+    val SwitchView = icon("SwitchView", "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z")
     val Shuffle = icon(
         "Shuffle",
         "M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z",

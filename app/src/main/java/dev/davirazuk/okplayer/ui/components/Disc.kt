@@ -118,9 +118,22 @@ fun Disc(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier) {
                 style = Stroke(width = ring),
                 blendMode = BlendMode.Screen,
             )
-            drawCircle(Color.White.copy(alpha = 0.55f), radius = r * 0.5f, style = Stroke(width = 3f))
-            drawCircle(Palette.Ink, radius = r * 0.07f)
-            drawCircle(Color.White.copy(alpha = 0.4f), radius = r * 0.07f, style = Stroke(width = 2f))
+            drawCircle(Color.White.copy(alpha = 0.6f), radius = r * 0.52f, style = Stroke(width = 2.5f))
+            // Metal hub with the spindle hole.
+            drawCircle(
+                Brush.radialGradient(
+                    0.00f to Palette.Black,
+                    0.34f to Palette.Black,
+                    0.36f to Color(0xFF8C96A3),
+                    0.52f to Color(0xFFDFE5EC),
+                    0.70f to Color(0xFF7D8793),
+                    0.72f to Color(0xFF2A2F35),
+                    1.00f to Color.Transparent,
+                    center = center,
+                    radius = r * 0.13f,
+                ),
+                radius = r * 0.13f,
+            )
         }
     }
 }

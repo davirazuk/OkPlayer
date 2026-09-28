@@ -62,7 +62,7 @@ fun albumArtUri(albumId: Long): Uri = ContentUris.withAppendedId(ALBUM_ART, albu
 class LibraryRepository(private val context: Context) {
 
     suspend fun loadAlbums(): List<Album> = withContext(Dispatchers.IO) {
-        val tracks = queryTracks()
+        val tracks = queryTracks("${MediaStore.Audio.Media.IS_MUSIC} != 0", null)
         tracks.groupBy { it.albumId }
             .map { (albumId, items) ->
                 val sorted = items.sortedWith(compareBy<Track>({ it.discNumber }, { it.trackNumber }, { it.title.lowercase() }))
@@ -78,7 +78,16 @@ class LibraryRepository(private val context: Context) {
             .sortedWith(compareBy<Album>({ it.artist.lowercase() }, { it.year ?: 0 }, { it.title.lowercase() }))
     }
 
-    private fun queryTracks(): List<Track> {
+    /** Looks tracks up by id, keeping the order given and dropping ones that no longer exist. */
+    suspend fun tracksById(ids: List<Long>): List<Track> = withContext(Dispatchers.IO) {
+        if (ids.isEmpty()) return@withContext emptyList()
+        val found = ids.distinct().chunked(500).flatMap { chunk ->
+            queryTracks("${MediaStore.Audio.Media._ID} IN (${chunk.joinToString(",") { "?" }})", chunk.map { it.toString() }.toTypedArray())
+        }.associateBy { it.id }
+        ids.mapNotNull { found[it] }
+    }
+
+    private fun queryTracks(selection: String, args: Array<String>?): List<Track> {
         val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -92,9 +101,8 @@ class LibraryRepository(private val context: Context) {
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.MIME_TYPE,
         )
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0"
         val result = mutableListOf<Track>()
-        context.contentResolver.query(collection, projection, selection, null, null)?.use { c ->
+        context.contentResolver.query(collection, projection, selection, args, null)?.use { c ->
             val idCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
             val titleCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
             val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)

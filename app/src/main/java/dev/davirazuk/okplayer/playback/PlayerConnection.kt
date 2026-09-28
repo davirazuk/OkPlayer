@@ -34,6 +34,8 @@ data class NowPlaying(
     val isEmpty get() = mediaId == null
 }
 
+data class QueueEntry(val mediaId: String, val title: String, val artist: String)
+
 /** UI-side handle on the playback service. */
 class PlayerConnection(private val context: Context, private val scope: CoroutineScope) {
 
@@ -43,9 +45,13 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
     private val _state = MutableStateFlow(NowPlaying())
     val state: StateFlow<NowPlaying> = _state.asStateFlow()
 
+    private val _queue = MutableStateFlow<List<QueueEntry>>(emptyList())
+    val queue: StateFlow<List<QueueEntry>> = _queue.asStateFlow()
+
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             publish()
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) publishQueue()
             if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) updateTicker()
         }
     }
@@ -58,6 +64,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
             controller = c
             c.addListener(listener)
             publish()
+            publishQueue()
             updateTicker()
         }
     }
@@ -99,6 +106,12 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         controller?.seekTo(positionMs)
     }
 
+    fun playAt(index: Int) {
+        val c = controller ?: return
+        c.seekTo(index, 0)
+        c.play()
+    }
+
     fun setShuffle(enabled: Boolean) {
         controller?.shuffleModeEnabled = enabled
     }
@@ -111,6 +124,14 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
                 publish()
                 delay(250)
             }
+        }
+    }
+
+    private fun publishQueue() {
+        val c = controller ?: return
+        _queue.value = (0 until c.mediaItemCount).map { i ->
+            val item = c.getMediaItemAt(i)
+            QueueEntry(item.mediaId, item.mediaMetadata.title?.toString().orEmpty(), item.mediaMetadata.artist?.toString().orEmpty())
         }
     }
 

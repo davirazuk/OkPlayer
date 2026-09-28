@@ -1,20 +1,19 @@
 package dev.davirazuk.okplayer.audio
 
 import androidx.media3.common.C
-import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Taps the decoded audio on its way to the sink and keeps three rough band levels
- * for the visualizer. It only reads the buffers, so output stays untouched.
+ * Keeps three rough band levels of the decoded audio for the visualizer.
+ * It only reads the buffers [MeteringAudioSink] hands it, so output stays untouched.
  *
  * No FFT: a pair of one-pole filters is enough to make the picture follow the kick,
  * the voice and the cymbals, and it runs on the audio thread without allocating.
  */
-object LevelMeter : TeeAudioProcessor.AudioBufferSink {
+object LevelMeter {
 
     @Volatile var bass = 0f; private set
     @Volatile var mid = 0f; private set
@@ -27,7 +26,7 @@ object LevelMeter : TeeAudioProcessor.AudioBufferSink {
     private var low = 0f
     private var lowMid = 0f
 
-    override fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) {
+    fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) {
         this.encoding = encoding
         channels = max(1, channelCount)
         lowAlpha = alpha(180f, sampleRateHz)
@@ -36,7 +35,7 @@ object LevelMeter : TeeAudioProcessor.AudioBufferSink {
         lowMid = 0f
     }
 
-    override fun handleBuffer(buffer: ByteBuffer) {
+    fun handleBuffer(buffer: ByteBuffer) {
         if (encoding != C.ENCODING_PCM_16BIT && encoding != C.ENCODING_PCM_FLOAT) return
         val data = buffer.duplicate().order(ByteOrder.nativeOrder())
         var sumBass = 0f

@@ -12,27 +12,31 @@ import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import android.media.AudioAttributes as PlatformAudioAttributes
 
-/** What the listener actually gets, shown under the controls. */
+/** What the current file is, as read from the stream. */
+data class TrackInfo(
+    val codec: String,
+    val sampleRate: Int?,
+    val bitDepth: Int?,
+    val channels: Int?,
+    val bitrate: Int?,
+    val lossless: Boolean,
+)
+
+/** Where the sound goes and whether it arrives untouched. */
 sealed interface OutputStatus {
-    val sampleRate: Int?
-    val bitDepth: Int?
+    data object Idle : OutputStatus
 
-    data object Idle : OutputStatus {
-        override val sampleRate: Int? = null
-        override val bitDepth: Int? = null
-    }
-
-    data class Internal(override val sampleRate: Int?, override val bitDepth: Int?) : OutputStatus
+    data class Internal(val sampleRate: Int?) : OutputStatus
 
     data class Usb(
         val deviceName: String,
-        override val sampleRate: Int?,
-        override val bitDepth: Int?,
+        val sampleRate: Int?,
         val bitPerfect: Boolean,
         val reason: String?,
         val supportedRates: List<Int>,
@@ -42,25 +46,36 @@ sealed interface OutputStatus {
 object OutputState {
     private val _status = MutableStateFlow<OutputStatus>(OutputStatus.Idle)
     val status: StateFlow<OutputStatus> = _status.asStateFlow()
+
+    private val _track = MutableStateFlow<TrackInfo?>(null)
+    val track: StateFlow<TrackInfo?> = _track.asStateFlow()
+
     internal fun set(status: OutputStatus) {
         _status.value = status
+    }
+
+    internal fun setTrack(info: TrackInfo?) {
+        _track.value = info
     }
 }
 
 /**
- * Asks Android 14+ to open USB DACs in bit-perfect mode at the sample rate of the
- * current track. On older versions, or when the DAC doesn't offer the needed format,
- * Android's mixer resamples and the status says so.
+ * Asks Android 14+ to open a USB DAC in bit-perfect mode, matching the sample rate
+ * and sample format the decoder actually produces. When the DAC or the phone can't
+ * do that, Android's mixer resamples and the status line says why.
+ *
+ * [onOutputPcm] is called from the playback thread right before the audio track is
+ * opened, so the preference is in place when the stream starts.
  */
-class UsbDacRouter(
-    context: Context,
-    private val attributes: PlatformAudioAttributes,
-    private val floatOutput: Boolean,
-) {
+class UsbDacRouter(context: Context, private val attributes: PlatformAudioAttributes) {
+
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
+
     private var usbDevice: AudioDeviceInfo? = null
-    private var format: Format? = null
+    private var pcmRate: Int? = null
+    private var pcmEncoding: Int = C.ENCODING_INVALID
+    private var hasTrack = false
     private var preferredSetOn: AudioDeviceInfo? = null
 
     private val deviceCallback = object : AudioDeviceCallback() {
@@ -73,17 +88,32 @@ class UsbDacRouter(
         refreshDevice()
     }
 
+    @Synchronized
     fun stop() {
         audioManager.unregisterAudioDeviceCallback(deviceCallback)
         clearPreferred()
         OutputState.set(OutputStatus.Idle)
+        OutputState.setTrack(null)
     }
 
+    /** The compressed stream's format, used for the display. */
+    @Synchronized
     fun onTrackFormat(format: Format?) {
-        this.format = format
+        hasTrack = format != null
+        OutputState.setTrack(format?.let(::describe))
+        if (format == null) pcmRate = null
         apply()
     }
 
+    /** The decoded PCM the sink is about to play. */
+    @Synchronized
+    fun onOutputPcm(sampleRate: Int, encoding: Int) {
+        pcmRate = sampleRate
+        pcmEncoding = encoding
+        apply()
+    }
+
+    @Synchronized
     private fun refreshDevice() {
         usbDevice = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .firstOrNull { it.type == AudioDeviceInfo.TYPE_USB_HEADSET || it.type == AudioDeviceInfo.TYPE_USB_DEVICE }
@@ -91,49 +121,47 @@ class UsbDacRouter(
     }
 
     private fun apply() {
-        val rate = format?.sampleRate?.takeIf { it != Format.NO_VALUE }
-        val bits = format?.let(::bitDepthOf)
         val device = usbDevice
-
+        val rate = pcmRate
         if (device == null) {
             preferredSetOn = null
-            OutputState.set(if (format == null) OutputStatus.Idle else OutputStatus.Internal(rate, bits))
+            OutputState.set(if (hasTrack) OutputStatus.Internal(rate) else OutputStatus.Idle)
             return
         }
-
         val name = device.productName?.toString()?.takeIf { it.isNotBlank() } ?: "USB DAC"
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            OutputState.set(OutputStatus.Usb(name, rate, bits, false, "Needs Android 14 or newer", emptyList()))
+            OutputState.set(OutputStatus.Usb(name, rate, false, "Needs Android 14 or newer", emptyList()))
             return
         }
-        OutputState.set(applyBitPerfect(device, name, rate, bits))
+        OutputState.set(applyBitPerfect(device, name, rate))
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun applyBitPerfect(device: AudioDeviceInfo, name: String, rate: Int?, bits: Int?): OutputStatus {
+    private fun applyBitPerfect(device: AudioDeviceInfo, name: String, rate: Int?): OutputStatus {
         val options = runCatching { audioManager.getSupportedMixerAttributes(device) }.getOrDefault(emptyList())
             .filter { it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
         val rates = options.map { it.format.sampleRate }.distinct().sorted()
 
         if (options.isEmpty()) {
             clearPreferred()
-            return OutputStatus.Usb(name, rate, bits, false, "This phone doesn't offer bit-perfect USB output", rates)
+            return OutputStatus.Usb(name, rate, false, "This phone doesn't offer bit-perfect USB output", rates)
         }
-        if (rate == null) {
-            return OutputStatus.Usb(name, null, null, false, null, rates)
-        }
+        if (rate == null) return OutputStatus.Usb(name, null, false, null, rates)
 
-        val wanted = if (floatOutput) AudioFormat.ENCODING_PCM_FLOAT else AudioFormat.ENCODING_PCM_16BIT
+        val wanted = platformEncoding(pcmEncoding)
         val match = options.firstOrNull { it.format.sampleRate == rate && it.format.encoding == wanted }
         if (match == null) {
             clearPreferred()
-            val reason = if (rate in rates) "DAC doesn't accept this bit depth bit-perfect" else "DAC doesn't support ${formatRate(rate)}"
-            return OutputStatus.Usb(name, rate, bits, false, reason, rates)
+            val reason = when {
+                rate !in rates -> "DAC has no bit-perfect mode at ${formatRate(rate)}"
+                else -> "DAC doesn't take this sample format bit-perfect"
+            }
+            return OutputStatus.Usb(name, rate, false, reason, rates)
         }
 
         val ok = runCatching { audioManager.setPreferredMixerAttributes(attributes, device, match) }.getOrDefault(false)
-        if (ok) preferredSetOn = device
-        return OutputStatus.Usb(name, rate, bits, ok, if (ok) null else "Android refused bit-perfect mode", rates)
+        preferredSetOn = if (ok) device else null
+        return OutputStatus.Usb(name, rate, ok, if (ok) null else "Android refused bit-perfect mode", rates)
     }
 
     private fun clearPreferred() {
@@ -144,13 +172,46 @@ class UsbDacRouter(
         preferredSetOn = null
     }
 
-    private fun bitDepthOf(format: Format): Int? = when (format.pcmEncoding) {
+    private fun platformEncoding(encoding: Int) = when (encoding) {
+        C.ENCODING_PCM_FLOAT -> AudioFormat.ENCODING_PCM_FLOAT
+        C.ENCODING_PCM_24BIT -> AudioFormat.ENCODING_PCM_24BIT_PACKED
+        C.ENCODING_PCM_32BIT -> AudioFormat.ENCODING_PCM_32BIT
+        else -> AudioFormat.ENCODING_PCM_16BIT
+    }
+}
+
+private fun describe(format: Format): TrackInfo {
+    val mime = format.sampleMimeType
+    val codec = when (mime) {
+        MimeTypes.AUDIO_FLAC -> "FLAC"
+        MimeTypes.AUDIO_ALAC -> "ALAC"
+        MimeTypes.AUDIO_MPEG -> "MP3"
+        MimeTypes.AUDIO_AAC -> "AAC"
+        MimeTypes.AUDIO_VORBIS -> "Vorbis"
+        MimeTypes.AUDIO_OPUS -> "Opus"
+        MimeTypes.AUDIO_RAW -> "PCM"
+        MimeTypes.AUDIO_AC3 -> "AC-3"
+        MimeTypes.AUDIO_E_AC3, MimeTypes.AUDIO_E_AC3_JOC -> "E-AC-3"
+        MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_HD -> "DTS"
+        MimeTypes.AUDIO_TRUEHD -> "TrueHD"
+        MimeTypes.AUDIO_AMR_NB, MimeTypes.AUDIO_AMR_WB -> "AMR"
+        else -> mime?.substringAfter('/')?.uppercase() ?: "Audio"
+    }
+    val bits = when (format.pcmEncoding) {
         C.ENCODING_PCM_8BIT -> 8
         C.ENCODING_PCM_16BIT, C.ENCODING_PCM_16BIT_BIG_ENDIAN -> 16
         C.ENCODING_PCM_24BIT -> 24
         C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 32
         else -> null
     }
+    return TrackInfo(
+        codec = codec,
+        sampleRate = format.sampleRate.takeIf { it != Format.NO_VALUE },
+        bitDepth = bits,
+        channels = format.channelCount.takeIf { it != Format.NO_VALUE },
+        bitrate = format.averageBitrate.takeIf { it != Format.NO_VALUE } ?: format.bitrate.takeIf { it != Format.NO_VALUE },
+        lossless = codec in setOf("FLAC", "ALAC", "PCM", "TrueHD"),
+    )
 }
 
 fun formatRate(hz: Int): String =

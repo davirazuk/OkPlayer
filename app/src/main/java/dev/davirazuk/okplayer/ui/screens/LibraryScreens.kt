@@ -2,7 +2,8 @@ package dev.davirazuk.okplayer.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,10 +14,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -26,329 +25,193 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.davirazuk.okplayer.audio.OutputStatus
-import dev.davirazuk.okplayer.audio.formatRate
+import androidx.compose.ui.unit.sp
 import dev.davirazuk.okplayer.library.Album
-import dev.davirazuk.okplayer.playback.NowPlaying
 import dev.davirazuk.okplayer.ui.LibraryState
 import dev.davirazuk.okplayer.ui.components.Artwork
-import dev.davirazuk.okplayer.ui.components.OrbButton
+import dev.davirazuk.okplayer.ui.components.Command
+import dev.davirazuk.okplayer.ui.components.CommandBar
+import dev.davirazuk.okplayer.ui.components.GroupHeader
+import dev.davirazuk.okplayer.ui.components.InfoBar
+import dev.davirazuk.okplayer.ui.components.Stars
+import dev.davirazuk.okplayer.ui.components.Win7Button
+import dev.davirazuk.okplayer.ui.components.explorerItem
 import dev.davirazuk.okplayer.ui.components.formatTime
-import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
-
-/** Window-style header: a strip of Aero glass with the title on it. */
-@Composable
-private fun GlassHeader(title: String, subtitle: String?, onBack: (() -> Unit)?, action: @Composable () -> Unit = {}) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color(0xFF2A5F8F), Color(0xFF173F63), Color(0xFF10243A))))
-            .statusBarsPadding(),
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(Color.White.copy(alpha = 0.35f))
-                .align(Alignment.TopCenter),
-        )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (onBack != null) {
-                IconButton(onClick = onBack) { Icon(Glyphs.Back, "Back", tint = Palette.Text) }
-            } else {
-                Spacer(Modifier.width(12.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.headlineSmall, color = Palette.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color(0xFFB5CBE0))
-            }
-            action()
-        }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.Black.copy(alpha = 0.5f)).align(Alignment.BottomCenter))
-    }
-}
 
 @Composable
 fun LibraryScreen(
     state: LibraryState,
-    nowPlaying: NowPlaying,
     onRequestPermission: () -> Unit,
     onOpenAlbum: (Album) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenNowPlaying: () -> Unit,
-    onTogglePlay: () -> Unit,
+    onRefresh: () -> Unit,
+    onOptions: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().background(Palette.Ink)) {
-        val subtitle = (state as? LibraryState.Ready)?.albums?.let { a -> "${a.size} albums · ${a.sumOf { it.tracks.size }} songs" }
-        GlassHeader("Library", subtitle, onBack = null) {
-            IconButton(onClick = onOpenSettings) { Icon(Glyphs.Tune, "Settings", tint = Palette.Text) }
+    Column(Modifier.fillMaxSize()) {
+        val count = (state as? LibraryState.Ready)?.albums?.let { a -> "${a.size} albums, ${a.sumOf { it.tracks.size }} songs" }
+        CommandBar(trailing = count) {
+            Command("Refresh", onRefresh)
+            Command("Options", onOptions)
         }
+        when (state) {
+            LibraryState.NeedsPermission -> Column(Modifier.padding(12.dp)) {
+                InfoBar("okplayer needs permission to read the music on this phone. It only reads audio files, and nothing leaves the device.")
+                Spacer(Modifier.height(12.dp))
+                Win7Button("Allow access", onRequestPermission)
+            }
 
-        Box(Modifier.weight(1f)) {
-            when (state) {
-                LibraryState.NeedsPermission -> Message(
-                    title = "okplayer needs to see your music",
-                    body = "It only reads audio files on this phone. Nothing leaves the device.",
-                    action = "Allow access",
-                    onAction = onRequestPermission,
+            LibraryState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Palette.Aero, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
+            }
+
+            is LibraryState.Ready -> if (state.albums.isEmpty()) {
+                InfoBar(
+                    "No music found. Copy FLAC, ALAC, MP3, AAC, OGG, Opus or WAV files into the Music folder, then tap Refresh.",
+                    Modifier.padding(12.dp),
                 )
-                LibraryState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Palette.Aero)
-                }
-                is LibraryState.Ready -> if (state.albums.isEmpty()) {
-                    Message(
-                        title = "No music found",
-                        body = "Copy FLAC, MP3, M4A or OGG files into the Music folder on your phone, then reopen the app.",
-                    )
-                } else {
-                    AlbumGrid(state.albums, onOpenAlbum)
-                }
+            } else {
+                AlbumGrid(state.albums, onOpenAlbum)
             }
         }
-
-        if (!nowPlaying.isEmpty) MiniPlayer(nowPlaying, onOpenNowPlaying, onTogglePlay)
     }
 }
 
 @Composable
 private fun AlbumGrid(albums: List<Album>, onOpenAlbum: (Album) -> Unit) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(150.dp),
-        contentPadding = PaddingValues(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        columns = GridCells.Adaptive(132.dp),
+        contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(albums, key = { it.id }) { album ->
-            Column(
-                Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .clickable { onOpenAlbum(album) }
-                    .padding(2.dp),
-            ) {
-                Artwork(
-                    album.artUri,
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(3.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(3.dp)),
-                )
-                Text(
-                    album.title, style = MaterialTheme.typography.titleSmall, color = Palette.Text,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp),
-                )
-                Text(album.artist, style = MaterialTheme.typography.bodySmall, color = Palette.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        item(span = { GridItemSpan(maxLineSpan) }) { Spacer(Modifier.navigationBarsPadding()) }
+        item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Albums") }
+        items(albums, key = { it.id }) { album -> AlbumTile(album) { onOpenAlbum(album) } }
     }
 }
 
 @Composable
-private fun MiniPlayer(state: NowPlaying, onOpen: () -> Unit, onTogglePlay: () -> Unit) {
+private fun AlbumTile(album: Album, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
     Column(
         Modifier
-            .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color(0xFF1B2F46), Color(0xFF0E1A28))))
-            .clickable(onClick = onOpen)
-            .navigationBarsPadding(),
+            .explorerItem(selected = false, source = source, pressed = pressed, onClick = onClick)
+            .padding(7.dp),
     ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.25f)))
-        val progress = if (state.durationMs > 0) state.positionMs.toFloat() / state.durationMs else 0f
-        Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(2.dp).background(Palette.Aero))
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Artwork(state.artUri, Modifier.size(44.dp).clip(RoundedCornerShape(3.dp)))
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(state.title, style = MaterialTheme.typography.titleSmall, color = Palette.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(state.artist, style = MaterialTheme.typography.bodySmall, color = Palette.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            OrbButton(
-                if (state.isPlaying) Glyphs.Pause else Glyphs.Play,
-                if (state.isPlaying) "Pause" else "Play",
-                onTogglePlay,
-                size = 40.dp,
-            )
-        }
+        Artwork(
+            album.artUri,
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .shadow(2.dp, RoundedCornerShape(1.dp)),
+        )
+        Text(
+            album.title, fontSize = 12.5.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+        Text(album.artist, fontSize = 11.5.sp, color = Palette.Sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 fun AlbumScreen(
     album: Album,
-    nowPlaying: NowPlaying,
-    favorites: Set<String>,
+    currentId: String?,
+    ratings: Map<String, Int>,
     noSkipping: Boolean,
-    onBack: () -> Unit,
     onPlay: (startIndex: Int, shuffle: Boolean) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().background(Palette.Ink)) {
-        GlassHeader(album.title, album.artist, onBack = onBack)
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 24.dp)) {
+    Column(Modifier.fillMaxSize()) {
+        CommandBar {
+            Command("Play") { onPlay(0, false) }
+            if (!noSkipping) Command("Shuffle") { onPlay(0, true) }
+        }
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
             item {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Bottom) {
-                    Artwork(album.artUri, Modifier.size(132.dp).clip(RoundedCornerShape(3.dp)))
-                    Column(Modifier.padding(start = 16.dp)) {
+                Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 10.dp), verticalAlignment = Alignment.Bottom) {
+                    Artwork(album.artUri, Modifier.size(112.dp).shadow(2.dp, RoundedCornerShape(1.dp)))
+                    Column(Modifier.padding(start = 14.dp)) {
+                        Text(album.title, fontSize = 18.sp, color = Palette.Heading, lineHeight = 22.sp)
+                        Text(album.artist, fontSize = 12.sp, color = Palette.Sub, modifier = Modifier.padding(top = 3.dp))
                         val meta = listOfNotNull(
                             album.year?.toString(),
                             "${album.tracks.size} songs",
-                            "${album.durationMs / 60_000} min",
-                        ).joinToString(" · ")
-                        Text(meta, style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            AeroButton("Play in order") { onPlay(0, false) }
-                            if (!noSkipping) AeroButton("Shuffle", primary = false) { onPlay(0, true) }
-                        }
+                            "${album.durationMs / 60_000} minutes",
+                        ).joinToString(", ")
+                        Text(meta, fontSize = 12.sp, color = Palette.Sub)
                     }
                 }
             }
+            item { ColumnHeaders() }
             itemsIndexed(album.tracks, key = { _, t -> t.id }) { index, track ->
                 val id = track.id.toString()
-                val current = nowPlaying.mediaId == id
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(if (current) Color(0xFF16304C) else Color.Transparent)
-                        .clickable { onPlay(index, false) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        track.trackNumber.takeIf { it > 0 }?.toString() ?: "${index + 1}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (current) Palette.Aero else Palette.Faint,
-                        modifier = Modifier.width(28.dp),
-                    )
-                    Text(
-                        track.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (current) Palette.Aero else Palette.Text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (id in favorites) {
-                        Icon(Glyphs.Heart, "Loved", tint = Palette.Pink, modifier = Modifier.padding(horizontal = 8.dp).size(14.dp))
-                    }
-                    Text(formatTime(track.durationMs), style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-                }
-            }
-            item { Spacer(Modifier.navigationBarsPadding()) }
-        }
-    }
-}
-
-@Composable
-fun SettingsScreen(
-    hiResOutput: Boolean,
-    noSkipping: Boolean,
-    output: OutputStatus,
-    onBack: () -> Unit,
-    onHiRes: (Boolean) -> Unit,
-    onNoSkipping: (Boolean) -> Unit,
-) {
-    Column(Modifier.fillMaxSize().background(Palette.Ink)) {
-        GlassHeader("Settings", null, onBack = onBack)
-        Column(Modifier.padding(vertical = 8.dp)) {
-            SettingRow(
-                "Hi-res output",
-                "Decodes to 32-bit float so 24-bit files reach a USB DAC untouched. Takes effect the next time playback starts.",
-                hiResOutput, onHiRes,
-            )
-            SettingRow(
-                "No skipping",
-                "Songs can't be skipped or fast-forwarded until they end. Applies to the lock screen and headset buttons too.",
-                noSkipping, onNoSkipping,
-            )
-
-            Text(
-                "OUTPUT",
-                style = MaterialTheme.typography.labelSmall,
-                color = Palette.Muted,
-                modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp),
-            )
-            OutputLine(output, Modifier.padding(horizontal = 16.dp))
-            if (output is OutputStatus.Usb && output.supportedRates.isNotEmpty()) {
-                Text(
-                    "Bit-perfect rates on this DAC: " + output.supportedRates.joinToString(", ") { formatRate(it) },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Palette.Faint,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                TrackRow(
+                    number = track.trackNumber.takeIf { it > 0 } ?: (index + 1),
+                    title = track.title,
+                    rating = ratings[id] ?: 0,
+                    duration = formatTime(track.durationMs),
+                    current = id == currentId,
+                    onClick = { onPlay(index, false) },
                 )
             }
         }
     }
 }
 
+private val columnWidths = listOf(30.dp, 70.dp, 44.dp)
+
 @Composable
-private fun SettingRow(title: String, body: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ColumnHeaders() {
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable { onChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .height(25.dp)
+            .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFF5F8FB))))
+            .drawBehind {
+                drawLine(Palette.Rule, Offset(0f, 0f), Offset(size.width, 0f))
+                drawLine(Palette.Rule, Offset(0f, size.height), Offset(size.width, size.height))
+            }
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f).padding(end = 16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = Palette.Text)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = Palette.Muted, modifier = Modifier.padding(top = 2.dp))
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = Palette.Aero, checkedThumbColor = Color.White),
-        )
+        val ink = Color(0xFF4C607A)
+        Text("#", fontSize = 11.5.sp, color = ink, modifier = Modifier.width(columnWidths[0]))
+        Text("Title", fontSize = 11.5.sp, color = ink, modifier = Modifier.weight(1f))
+        Text("Rating", fontSize = 11.5.sp, color = ink, modifier = Modifier.width(columnWidths[1]))
+        Text("Length", fontSize = 11.5.sp, color = ink, textAlign = TextAlign.End, modifier = Modifier.width(columnWidths[2]))
     }
 }
 
 @Composable
-private fun AeroButton(label: String, primary: Boolean = true, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(3.dp)
-    val fill = if (primary) {
-        listOf(Color(0xFF7CC4F2), Color(0xFF3B95D8), Color(0xFF1F6FB3), Color(0xFF2C86CC))
-    } else {
-        listOf(Color(0xFF3A4B60), Color(0xFF2A394B), Color(0xFF1E2A38), Color(0xFF263546))
-    }
-    Box(
+private fun TrackRow(number: Int, title: String, rating: Int, duration: String, current: Boolean, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    Row(
         Modifier
-            .clip(shape)
-            .background(Brush.verticalGradient(fill))
-            .border(1.dp, Color(0xFF0A2A4A), shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .fillMaxWidth()
+            .height(34.dp)
+            .explorerItem(selected = current, source = source, pressed = pressed, onClick = onClick)
+            .padding(horizontal = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White)
-    }
-}
-
-@Composable
-private fun Message(title: String, body: String, action: String? = null, onAction: () -> Unit = {}) {
-    Column(
-        Modifier.fillMaxSize().padding(32.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = Palette.Text)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = Palette.Muted, modifier = Modifier.padding(top = 8.dp))
-        if (action != null) {
-            Spacer(Modifier.height(20.dp))
-            AeroButton(action, onClick = onAction)
-        }
+        Text("$number", fontSize = 12.5.sp, color = Palette.Sub, modifier = Modifier.width(columnWidths[0]))
+        Text(title, fontSize = 13.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Box(Modifier.width(columnWidths[1])) { Stars(rating) }
+        Text(duration, fontSize = 12.5.sp, color = Palette.Sub, textAlign = TextAlign.End, modifier = Modifier.width(columnWidths[2]))
     }
 }

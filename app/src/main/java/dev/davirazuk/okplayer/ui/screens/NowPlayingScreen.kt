@@ -1,11 +1,13 @@
 package dev.davirazuk.okplayer.ui.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,35 +15,41 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.davirazuk.okplayer.audio.OutputStatus
-import dev.davirazuk.okplayer.audio.formatRate
+import dev.davirazuk.okplayer.audio.TrackInfo
 import dev.davirazuk.okplayer.playback.NowPlaying
+import dev.davirazuk.okplayer.playback.QueueEntry
+import dev.davirazuk.okplayer.ui.DeckView
+import dev.davirazuk.okplayer.ui.LyricsState
 import dev.davirazuk.okplayer.ui.components.Aurora
-import dev.davirazuk.okplayer.ui.components.Disc
-import dev.davirazuk.okplayer.ui.components.OrbButton
+import dev.davirazuk.okplayer.ui.components.DiscWell
+import dev.davirazuk.okplayer.ui.components.Lamp
+import dev.davirazuk.okplayer.ui.components.Lcd
 import dev.davirazuk.okplayer.ui.components.formatTime
 import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
@@ -49,182 +57,227 @@ import dev.davirazuk.okplayer.ui.theme.Palette
 @Composable
 fun NowPlayingScreen(
     state: NowPlaying,
+    track: TrackInfo?,
     output: OutputStatus,
-    favorite: Boolean,
+    rating: Int,
     noSkipping: Boolean,
-    onBack: () -> Unit,
-    onTogglePlay: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onShuffle: (Boolean) -> Unit,
-    onNoSkipping: (Boolean) -> Unit,
-    onFavorite: () -> Unit,
+    deckView: DeckView,
+    lyrics: LyricsState,
+    queue: List<QueueEntry>,
+    onlineLyrics: Boolean,
+    onRate: (Int) -> Unit,
+    onShowDeck: (DeckView) -> Unit,
+    onPlayAt: (Int) -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
         Aurora(playing = state.isPlaying)
-
-        Column(
-            Modifier
-                .fillMaxSize()
-                .systemBarsPadding()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Glyphs.Back, "Back", tint = Palette.Text) }
-                Text(
-                    if (state.count > 0) "TRACK ${state.index + 1} OF ${state.count}" else "NOW PLAYING",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Palette.Muted,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                )
-                IconButton(onClick = onFavorite, enabled = !state.isEmpty) {
-                    Icon(
-                        if (favorite) Glyphs.Heart else Glyphs.HeartOutline,
-                        if (favorite) "Remove from loved" else "Love this song",
-                        tint = if (favorite) Palette.Pink else Palette.Muted,
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            DeckTabs(deckView, onShowDeck)
+            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                when (deckView) {
+                    DeckView.Disc -> DiscWell(
+                        artUri = state.artUri,
+                        playing = state.isPlaying,
+                        modifier = Modifier.fillMaxWidth(0.78f).widthIn(max = 330.dp),
                     )
+                    DeckView.Lyrics -> LyricsView(lyrics, state.positionMs, onlineLyrics)
+                    DeckView.PlayList -> PlayListView(queue, state.index, onPlayAt)
                 }
             }
 
-            Spacer(Modifier.weight(0.6f))
-            Disc(artUri = state.artUri, playing = state.isPlaying, modifier = Modifier.fillMaxWidth(0.82f))
-            Spacer(Modifier.weight(0.5f))
+            Lcd(
+                track = if (state.isEmpty) "--" else "%02d".format(state.index + 1),
+                time = if (state.isEmpty) "-:--" else formatTime(state.positionMs),
+                title = state.title.ifEmpty { "No disc" },
+                subtitle = if (state.isEmpty) "Pick an album in the library" else listOf(state.artist, state.album).filter { it.isNotBlank() }.joinToString(" — "),
+                lamps = listOf(
+                    Lamp("SHUF", state.shuffle),
+                    Lamp("NO SKIP", noSkipping),
+                    Lamp("USB", output is OutputStatus.Usb),
+                    Lamp("BIT-PERFECT", output is OutputStatus.Usb && output.bitPerfect),
+                ),
+                format = track?.let(::formatLabel) ?: "",
+                modifier = Modifier.padding(horizontal = 18.dp),
+            )
 
+            if (deckView == DeckView.Disc) CurrentLyric(lyrics, state.positionMs)
+
+            if (!state.isEmpty) RatingRow(rating, onRate)
             Text(
-                state.title.ifEmpty { "Nothing playing" },
-                style = MaterialTheme.typography.titleLarge,
-                color = Palette.Text,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                describe(output),
+                fontSize = 11.5.sp,
+                color = Color(0xFF7F8B98),
                 textAlign = TextAlign.Center,
+                maxLines = 2,
+                modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        listOf(DeckView.Disc to "Disc", DeckView.Lyrics to "Lyrics", DeckView.PlayList to "Play list").forEach { (view, label) ->
+            val on = view == current
+            val shape = RoundedCornerShape(3.dp)
+            Text(
+                label,
+                fontSize = 12.5.sp,
+                color = if (on) Color.White else Color(0xFFAEB6BF),
+                modifier = Modifier
+                    .clip(shape)
+                    .then(
+                        if (on) Modifier
+                            .background(Brush.verticalGradient(listOf(Color(0x40FFFFFF), Color(0x10FFFFFF))))
+                            .border(1.dp, Color(0x40FFFFFF), shape)
+                        else Modifier,
+                    )
+                    .clickable(role = Role.Tab) { onShow(view) }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            )
+        }
+    }
+}
+
+private val lyricGlow = Shadow(Palette.LcdOn.copy(alpha = 0.6f), blurRadius = 12f)
+
+@Composable
+private fun CurrentLyric(lyrics: LyricsState, positionMs: Long) {
+    val found = (lyrics as? LyricsState.Found)?.lyrics ?: return
+    if (!found.synced) return
+    val i = found.indexAt(positionMs)
+    val line = if (i >= 0) found.lines[i].text else ""
+    Text(
+        line.ifBlank { "♪" },
+        style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = Palette.LcdOn.copy(alpha = 0.85f), shadow = lyricGlow),
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 10.dp),
+    )
+}
+
+@Composable
+private fun LyricsView(lyrics: LyricsState, positionMs: Long, onlineLyrics: Boolean) {
+    val message = when (lyrics) {
+        LyricsState.Searching -> "Looking for lyrics…"
+        LyricsState.None -> if (onlineLyrics) "No lyrics found for this song." else "No lyrics in this file. Online lookup is off in Options."
+        is LyricsState.Found -> null
+    }
+    if (message != null) {
+        Text(message, fontSize = 13.sp, color = Color(0xFF7F8B98), textAlign = TextAlign.Center, modifier = Modifier.padding(24.dp))
+        return
+    }
+    val found = (lyrics as LyricsState.Found).lyrics
+    val current = found.indexAt(positionMs)
+    val listState = rememberLazyListState()
+    val centerOffset = with(LocalDensity.current) { 110.dp.roundToPx() }
+
+    LaunchedEffect(current) {
+        if (current >= 0) listState.animateScrollToItem(current, scrollOffset = -centerOffset)
+    }
+    LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 90.dp),
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        itemsIndexed(found.lines) { i, line ->
+            val active = i == current
+            val color by animateColorAsState(
+                when {
+                    !found.synced -> Color(0xFFDCE6EE)
+                    active -> Palette.LcdOn
+                    else -> Color(0xFF5B6873)
+                },
+                label = "lyric",
             )
             Text(
-                listOf(state.artist, state.album).filter { it.isNotBlank() }.joinToString("  ·  ")
-                    .ifEmpty { "Pick an album in your library" },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Palette.Muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 4.dp),
+                line.text.ifBlank { " " },
+                style = TextStyle(
+                    fontSize = if (active) 19.sp else 16.sp,
+                    color = color,
+                    shadow = if (active) lyricGlow else null,
+                    lineHeight = 24.sp,
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(vertical = 5.dp),
             )
+        }
+    }
+}
 
-            Seekbar(state, noSkipping, onSeek)
-
+@Composable
+private fun PlayListView(queue: List<QueueEntry>, currentIndex: Int, onPlayAt: (Int) -> Unit) {
+    if (queue.isEmpty()) {
+        Text("The play list is empty.", fontSize = 13.sp, color = Color(0xFF7F8B98))
+        return
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (currentIndex - 2).coerceAtLeast(0))
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp)) {
+        itemsIndexed(queue, key = { i, e -> "$i-${e.mediaId}" }) { i, entry ->
+            val current = i == currentIndex
+            val shape = RoundedCornerShape(3.dp)
             Row(
-                Modifier.fillMaxWidth().padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(28.dp, Alignment.CenterHorizontally),
+                Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .clip(shape)
+                    .then(
+                        if (current) Modifier
+                            .background(Brush.verticalGradient(listOf(Color(0xFF2C6EA6), Color(0xFF184C7C))))
+                            .border(1.dp, Color(0xFF5AAEE8), shape)
+                        else Modifier,
+                    )
+                    .clickable { onPlayAt(i) }
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                OrbButton(Glyphs.Previous, "Previous", onPrevious, size = 46.dp, primary = false, enabled = !state.isEmpty)
-                OrbButton(
-                    if (state.isPlaying) Glyphs.Pause else Glyphs.Play,
-                    if (state.isPlaying) "Pause" else "Play",
-                    onTogglePlay,
-                    size = 72.dp,
-                    enabled = !state.isEmpty,
-                )
-                OrbButton(
-                    Glyphs.Next, "Next", onNext, size = 46.dp, primary = false,
-                    enabled = !state.isEmpty && state.hasNext && !noSkipping,
-                )
+                Text("${i + 1}", fontSize = 12.sp, color = if (current) Color.White else Color(0xFF6F7C89), modifier = Modifier.width(28.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(entry.title, fontSize = 13.sp, color = if (current) Color.White else Color(0xFFDCE3EA), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(entry.artist, fontSize = 11.sp, color = if (current) Color(0xFFBFDDF5) else Color(0xFF7F8B98), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
+        }
+    }
+}
 
-            Row(
-                Modifier.padding(top = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+@Composable
+private fun RatingRow(rating: Int, onRate: (Int) -> Unit) {
+    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        for (i in 1..5) {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(50))
+                    .clickable(role = Role.Button, onClickLabel = "Rate $i") { onRate(i) },
+                contentAlignment = Alignment.Center,
             ) {
-                ModeChip(Glyphs.InOrder, "In order", selected = !state.shuffle) { onShuffle(false) }
-                ModeChip(Glyphs.Shuffle, "Shuffle", selected = state.shuffle, enabled = !noSkipping) { onShuffle(true) }
-                ModeChip(Glyphs.Lock, "No skipping", selected = noSkipping) { onNoSkipping(!noSkipping) }
+                Icon(Glyphs.Star, "$i stars", tint = if (i <= rating) Palette.Star else Palette.StarOff, modifier = Modifier.size(20.dp))
             }
-
-            Spacer(Modifier.weight(0.4f))
-            OutputLine(output, Modifier.padding(bottom = 12.dp))
         }
     }
+    Spacer(Modifier.height(2.dp))
 }
 
-@Composable
-private fun Seekbar(state: NowPlaying, noSkipping: Boolean, onSeek: (Long) -> Unit) {
-    var dragging by remember { mutableStateOf<Float?>(null) }
-    val duration = state.durationMs.coerceAtLeast(1)
-    val fraction = dragging ?: (state.positionMs.toFloat() / duration).coerceIn(0f, 1f)
-
-    Column(Modifier.fillMaxWidth().padding(top = 18.dp)) {
-        Slider(
-            value = fraction,
-            onValueChange = { v ->
-                val allowed = if (noSkipping) v.coerceAtMost(state.positionMs.toFloat() / duration) else v
-                dragging = allowed
-            },
-            onValueChangeFinished = {
-                dragging?.let { onSeek((it * duration).toLong()) }
-                dragging = null
-            },
-            enabled = !state.isEmpty,
-            colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Palette.Aero,
-                inactiveTrackColor = Palette.Line,
-                disabledThumbColor = Palette.Faint,
-                disabledInactiveTrackColor = Palette.Line,
-            ),
-        )
-        Row(Modifier.fillMaxWidth()) {
-            Text(formatTime((fraction * state.durationMs).toLong()), style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-            Spacer(Modifier.weight(1f))
-            Text(formatTime(state.durationMs), style = MaterialTheme.typography.bodySmall, color = Palette.Muted)
-        }
+private fun formatLabel(t: TrackInfo): String {
+    val parts = mutableListOf(t.codec)
+    if (t.lossless && t.sampleRate != null) {
+        val rate = if (t.sampleRate % 1000 == 0) "${t.sampleRate / 1000}" else "%.1f".format(t.sampleRate / 1000f)
+        parts += if (t.bitDepth != null) "$rate/${t.bitDepth}" else "${rate}K"
+    } else if (t.bitrate != null && t.bitrate > 0) {
+        parts += "${t.bitrate / 1000}K"
     }
+    return parts.joinToString(" ")
 }
 
-@Composable
-private fun ModeChip(icon: ImageVector, label: String, selected: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(50)
-    Row(
-        Modifier
-            .clip(shape)
-            .background(if (selected) Color(0xFF23466F) else Palette.Surface.copy(alpha = 0.7f))
-            .border(1.dp, if (selected) Palette.Aero else Palette.Line, shape)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val tint = when {
-            !enabled -> Palette.Faint
-            selected -> Palette.Text
-            else -> Palette.Muted
-        }
-        Icon(icon, null, tint = tint, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = tint)
-    }
-}
-
-@Composable
-fun OutputLine(output: OutputStatus, modifier: Modifier = Modifier) {
-    val (dot, text) = describe(output)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (output is OutputStatus.Usb) {
-            Icon(Glyphs.Usb, null, tint = Palette.Muted, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(6.dp))
-        }
-        Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
-        Spacer(Modifier.width(8.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = Palette.Muted, maxLines = 2)
-    }
-}
-
-private fun describe(o: OutputStatus): Pair<Color, String> {
-    val format = listOfNotNull(o.sampleRate?.let(::formatRate), o.bitDepth?.let { "$it-bit" }).joinToString(" · ")
-    return when (o) {
-        OutputStatus.Idle -> Palette.Faint to "No output"
-        is OutputStatus.Internal -> Palette.Muted to listOf("Phone audio", format, "mixed by Android").filter { it.isNotEmpty() }.joinToString(" · ")
-        is OutputStatus.Usb ->
-            if (o.bitPerfect) Palette.Good to listOf(o.deviceName, format, "bit-perfect").filter { it.isNotEmpty() }.joinToString(" · ")
-            else Palette.Warn to listOfNotNull(o.deviceName, format.ifEmpty { null }, o.reason ?: "resampled").joinToString(" · ")
-    }
+private fun describe(o: OutputStatus): String = when (o) {
+    OutputStatus.Idle -> ""
+    is OutputStatus.Internal -> "Phone audio, mixed by Android"
+    is OutputStatus.Usb -> if (o.bitPerfect) "${o.deviceName} · bit-perfect" else "${o.deviceName} · ${o.reason ?: "resampled by Android"}"
 }
