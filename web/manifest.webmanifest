@@ -1,0 +1,14 @@
+{
+  "name": "okplayer",
+  "short_name": "okplayer",
+  "description": "local music player with a spinning disc, in-order mode and reactions",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b2f55",
+  "theme_color": "#123a5e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
