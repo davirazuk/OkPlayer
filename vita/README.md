@@ -4,6 +4,13 @@ The okplayer look on the Vita: Aero window, black glass control bar, and a CD
 spinning in its tray above a backlit LCD. Homebrew; needs a Vita running HENkaku
 or Ensō with VitaShell.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/vita_now_playing.png" width="49%" alt="Now Playing on the Vita">
+  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/vita_library.png" width="49%" alt="Library on the Vita">
+</p>
+
+<sub>Rendered from the Vita drawing code on a desktop by <code>tools/preview</code>.</sub>
+
 ## Install
 
 Download `okplayer-vita` from the latest run under **Actions → vita** (or from a
@@ -59,7 +66,8 @@ tools/fetch_decoders.sh
 cmake -S . -B build && cmake --build build
 ```
 
-`tools/make_livearea.py` redraws the LiveArea images.
+`tools/make_livearea.py` redraws the LiveArea images. `tools/preview/build.sh` renders
+the screens to PNGs on Linux (needs FreeType and libpng), using the real drawing code.
 
 ## Credits
 

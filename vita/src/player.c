@@ -413,6 +413,12 @@ const char *player_current_path(void) {
     return P.paths[P.order[P.index]];
 }
 
+const char *player_queue_path(int offset) {
+    int i = P.index + offset;
+    if (P.count == 0 || P.index < 0 || i < 0 || i >= P.count) return NULL;
+    return P.paths[P.order[i]];
+}
+
 void player_status(PlayerStatus *s) {
     lock();
     memset(s, 0, sizeof(*s));

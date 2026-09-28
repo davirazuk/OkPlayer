@@ -73,6 +73,18 @@ static int sel_album, lib_scroll;           /* library grid */
 static int open_album = -1, sel_track, track_scroll;
 static int playing_album = -1;
 static int cur_album = -1, cur_song = -1;   /* the song playing, found once per change */
+static char up_next[3][200];                 /* titles of the next songs, refreshed with it */
+
+static void find_song(const char *path, int *album, int *song);
+
+static void refresh_up_next(void) {
+    for (int i = 0; i < 3; i++) {
+        int a, s;
+        find_song(player_queue_path(i + 1), &a, &s);
+        if (s >= 0) snprintf(up_next[i], sizeof up_next[i], "%s  -  %s", lib.albums[a].songs[s].title, lib.albums[a].artist);
+        else up_next[i][0] = 0;
+    }
+}
 static float disc_angle, disc_speed;
 static char last_error[128];
 static int error_frames;
@@ -116,6 +128,78 @@ static void text_fit(int x, int y, unsigned c, float s, const char *str, int max
 }
 
 static void text_center(int cx, int y, unsigned c, float s, const char *str) { text(cx - text_w(s, str) / 2, y, c, s, str); }
+
+/*
+ * PlayStation button symbols, drawn rather than taken from the font: {X} cross,
+ * {O} circle, {T} triangle, {S} square, in their usual colours.
+ */
+static int glyph(char kind, int x, int y, float scale, int draw) {
+    int s = (int)(13 * scale / 0.75f);
+    if (draw) {
+        int top = y - s + 1;
+        float cx = x + s / 2.0f, cy = top + s / 2.0f, r = s / 2.0f - 1;
+        for (int t = 0; t < 2; t++) {
+            float o = t * 0.9f;
+            switch (kind) {
+                case 'X': {
+                    unsigned c = RGBA8(125, 160, 235, 255);
+                    vita2d_draw_line(x + 1 + o, top + 1, x + s - 1 + o, top + s - 1, c);
+                    vita2d_draw_line(x + s - 1 + o, top + 1, x + 1 + o, top + s - 1, c);
+                    break;
+                }
+                case 'O': {
+                    unsigned c = RGBA8(235, 105, 105, 255);
+                    for (int i = 0; i < 24; i++) {
+                        float a0 = i * 6.2831853f / 24, a1 = (i + 1) * 6.2831853f / 24;
+                        vita2d_draw_line(cx + (r - o) * cosf(a0), cy + (r - o) * sinf(a0), cx + (r - o) * cosf(a1), cy + (r - o) * sinf(a1), c);
+                    }
+                    break;
+                }
+                case 'T': {
+                    unsigned c = RGBA8(80, 205, 165, 255);
+                    vita2d_draw_line(cx, top + 1 + o, x + 1 + o, top + s - 1 - o, c);
+                    vita2d_draw_line(x + 1 + o, top + s - 1 - o, x + s - 1 - o, top + s - 1 - o, c);
+                    vita2d_draw_line(x + s - 1 - o, top + s - 1 - o, cx, top + 1 + o, c);
+                    break;
+                }
+                case 'S':
+                    frame(x + 1 + o, top + 1 + o, s - 2 - 2 * o, s - 2 - 2 * o, RGBA8(225, 135, 205, 255));
+                    break;
+            }
+        }
+    }
+    return s + 5;
+}
+
+/* Text with {X} {O} {T} {S} replaced by button symbols. Returns the width. */
+static int rich(int x, int y, unsigned c, float s, const char *str, int draw) {
+    int pen = x;
+    char buf[256];
+    while (*str) {
+        const char *brace = strchr(str, '{');
+        size_t n = brace ? (size_t)(brace - str) : strlen(str);
+        if (n > sizeof buf - 1) n = sizeof buf - 1;
+        if (n) {
+            memcpy(buf, str, n);
+            buf[n] = 0;
+            if (draw) text(pen, y, c, s, buf);
+            pen += text_w(s, buf);
+            str += n;
+        }
+        if (brace && brace[1] && brace[2] == '}') {
+            pen += glyph(brace[1], pen, y, s, draw);
+            str = brace + 3;
+        } else if (brace) {
+            str = brace + 1;
+        }
+    }
+    return pen - x;
+}
+
+static void khz(char *out, size_t n, unsigned hz) {
+    if (hz % 1000 == 0) snprintf(out, n, "%u", hz / 1000);
+    else snprintf(out, n, "%u.%u", hz / 1000, (hz % 1000) / 100);
+}
 
 static void triangle_right(float x, float y, float h, unsigned c) {
     for (int i = 0; i < (int)h; i++) {
@@ -254,16 +338,16 @@ static void draw_control_bar(const PlayerStatus *st) {
     }
 
     /* Toggles on the left, view switch hint on the right. */
-    text(PANE_X + 16, BAR_Y + 58, st->shuffle ? C_GLOW : C_BAR_DIM, 0.75f, "\xE2\x96\xA1 Shuffle");
+    rich(PANE_X + 16, BAR_Y + 58, st->shuffle ? C_GLOW : C_BAR_DIM, 0.75f, "{S} Shuffle", 1);
     text(PANE_X + 118, BAR_Y + 58, st->no_skip ? C_GLOW : C_BAR_DIM, 0.75f, "SELECT No skipping");
-    const char *hint = view == VIEW_NOW ? "\xE2\x96\xB3 Library" : "\xE2\x96\xB3 Now Playing";
-    text(PANE_X + PANE_W - 16 - text_w(0.75f, hint), BAR_Y + 58, C_BAR_DIM, 0.75f, hint);
+    const char *hint = view == VIEW_NOW ? "{T} Library" : "{T} Now Playing";
+    rich(PANE_X + PANE_W - 16 - rich(0, 0, 0, 0.75f, hint, 0), BAR_Y + 58, C_BAR_DIM, 0.75f, hint, 1);
 }
 
 static void command_bar(const char *left, const char *right) {
     stretch(skin.cmdbar, PANE_X, PANE_Y, PANE_W, 30);
     rect(PANE_X, PANE_Y + 30, PANE_W, 1, RGBA8(160, 175, 195, 255));
-    text(PANE_X + 12, PANE_Y + 21, C_INK, 0.8f, left);
+    rich(PANE_X + 12, PANE_Y + 21, C_INK, 0.8f, left, 1);
     if (right) text(PANE_X + PANE_W - 12 - text_w(0.8f, right), PANE_Y + 21, C_SUB, 0.8f, right);
 }
 
@@ -315,7 +399,7 @@ static void draw_library(void) {
     snprintf(head, sizeof head, "Albums (%d)", lib.count);
     group_header(PANE_X + 16, PANE_Y + 54, PANE_W - 32, head);
     snprintf(count, sizeof count, "%d albums, %d songs", lib.count, lib.song_total);
-    command_bar("X Open    \xE2\x96\xA1 Shuffle all", count);
+    command_bar("{X} Open     {S} Shuffle all", count);
 
     if (lib.count == 0) {
         text(PANE_X + 24, PANE_Y + 110, C_INK, 0.95f, "No music found.");
@@ -353,7 +437,7 @@ static void draw_album(const PlayerStatus *st) {
     snprintf(meta, sizeof meta, "%d song%s", a->song_count, a->song_count == 1 ? "" : "s");
     text(PANE_X + 20, PANE_Y + 274, C_SUB, 0.75f, meta);
 
-    command_bar("X Play    \xE2\x96\xA1 Shuffle    O Back", NULL);
+    command_bar("{X} Play     {S} Shuffle     {O} Back", NULL);
 }
 
 static void draw_now(const PlayerStatus *st) {
@@ -413,22 +497,35 @@ static void draw_now(const PlayerStatus *st) {
     text(lx + 16, ly + 176, st->shuffle ? C_LCD : C_LCD_OFF, 0.7f, "SHUF");
     text(lx + 72, ly + 176, st->no_skip ? C_LCD : C_LCD_OFF, 0.7f, "NO SKIP");
     if (st->sample_rate) {
-        char f[64];
-        unsigned r = st->sample_rate;
-        if (st->bits) snprintf(f, sizeof f, "%s %u.%u/%u", st->codec, r / 1000, (r % 1000) / 100, st->bits);
-        else snprintf(f, sizeof f, "%s %u.%u kHz", st->codec, r / 1000, (r % 1000) / 100);
+        char f[64], in[12], outr[12];
+        khz(in, sizeof in, st->sample_rate);
+        if (st->bits) snprintf(f, sizeof f, "%s %s/%u", st->codec, in, st->bits);
+        else snprintf(f, sizeof f, "%s %s kHz", st->codec, in);
         if (st->output_rate && st->output_rate != st->sample_rate) {
             size_t n = strlen(f);
-            snprintf(f + n, sizeof f - n, " > %u.%u", st->output_rate / 1000, (st->output_rate % 1000) / 100);
+            khz(outr, sizeof outr, st->output_rate);
+            snprintf(f + n, sizeof f - n, " > %s kHz", outr);
         }
         text(lx + lw - 16 - text_w(0.7f, f), ly + 176, C_LCD, 0.7f, f);
     }
 
-    text(lx, ly + lh + 44, C_BAR_DIM, 0.72f, "L / R  previous / next      START  pause      \xE2\x96\xA1  shuffle");
-    text(lx, ly + lh + 68, C_BAR_DIM, 0.72f, "SELECT  No skipping      O  back");
+    /* Up next: the following songs in play order. */
+    text(lx, ly + lh + 38, C_BAR_DIM, 0.62f, "UP NEXT");
+    rect(lx + 64, ly + lh + 33, lw - 64, 1, RGBA8(255, 255, 255, 30));
+    int shown = 0;
+    for (int i = 0; i < 3; i++) {
+        if (!up_next[i][0]) break;
+        char row[240];
+        snprintf(row, sizeof row, "%d.  %s", st->index + 2 + i, up_next[i]);
+        text_fit(lx + 4, ly + lh + 62 + i * 22, i == 0 ? C_BAR_TEXT : C_BAR_DIM, 0.75f, row, lw - 8);
+        shown++;
+    }
+    if (!shown && st->index >= 0) text(lx + 4, ly + lh + 62, C_BAR_DIM, 0.75f, "End of the play list");
+
+    rich(lx, BAR_Y - 14, RGBA8(110, 120, 132, 255), 0.64f, "L / R  prev / next     START  pause     {S} shuffle     SELECT  no skipping     {O} back", 1);
 
     if (error_frames > 0) {
-        int y = BAR_Y - 34;
+        int y = BAR_Y - 40;
         rect(PANE_X + 12, y, PANE_W - 24, 26, RGBA8(255, 255, 225, 255));
         frame(PANE_X + 12, y, PANE_W - 24, 26, RGBA8(118, 118, 118, 255));
         text_fit(PANE_X + 22, y + 18, C_BLACK, 0.75f, last_error, PANE_W - 44);
@@ -625,6 +722,7 @@ int main(void) {
         if (path != last_path) {
             /* The song changed: find it once, and follow its album on the disc label. */
             find_song(path, &cur_album, &cur_song);
+            refresh_up_next();
             playing_album = cur_album;
             last_path = path;
         }

@@ -38,6 +38,9 @@ void player_set_no_skip(int on);
 
 /* Path of the current song, or NULL. Valid until the queue changes. */
 const char *player_current_path(void);
+
+/* Path `offset` songs after the current one in play order, or NULL past the end. */
+const char *player_queue_path(int offset);
 void player_status(PlayerStatus *out);
 
 #endif
