@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">okplayer</string>
+    <string name="widget_description">What\'s playing, with play, previous and next</string>
 </resources>

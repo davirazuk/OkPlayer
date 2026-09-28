@@ -47,7 +47,11 @@ import dev.davirazuk.okplayer.data.PlaybackEvents
 import dev.davirazuk.okplayer.data.SleepTimer
 import dev.davirazuk.okplayer.data.Preferences
 import dev.davirazuk.okplayer.data.QueueStore
+import androidx.glance.appwidget.updateAll
 import dev.davirazuk.okplayer.library.LibraryRepository
+import dev.davirazuk.okplayer.widget.NowPlayingWidget
+import dev.davirazuk.okplayer.widget.WidgetSnapshot
+import dev.davirazuk.okplayer.widget.WidgetState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -207,6 +211,17 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onPlayerError(error: PlaybackException) = recover(error)
+
+        override fun onEvents(player: Player, events: Player.Events) {
+            if (events.containsAny(
+                    Player.EVENT_MEDIA_METADATA_CHANGED,
+                    Player.EVENT_IS_PLAYING_CHANGED,
+                    Player.EVENT_MEDIA_ITEM_TRANSITION,
+                )
+            ) {
+                updateWidget()
+            }
+        }
     }
 
     /**
@@ -241,6 +256,15 @@ class PlaybackService : MediaSessionService() {
             player.prepare()
             player.play()
         }
+    }
+
+    private fun updateWidget() {
+        val m = player.mediaMetadata
+        WidgetState.save(
+            this,
+            WidgetSnapshot(m.title?.toString().orEmpty(), m.artist?.toString().orEmpty(), m.artworkUri?.toString(), player.isPlaying),
+        )
+        scope.launch { runCatching { NowPlayingWidget().updateAll(this@PlaybackService) } }
     }
 
     private fun saveQueue() {

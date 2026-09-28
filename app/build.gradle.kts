@@ -13,8 +13,8 @@ android {
         applicationId = "dev.davirazuk.okplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     signingConfigs {
@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.media3.ffmpeg)
     implementation(libs.coroutines.guava)
     implementation(libs.coil.compose)
+    implementation(libs.glance.appwidget)
 
     testImplementation(libs.junit)
 }

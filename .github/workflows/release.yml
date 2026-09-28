@@ -25,10 +25,14 @@ jobs:
         run: ./gradlew --no-daemon assembleDebug
       - name: Name the APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "okplayer-v${{ inputs.version }}.apk"
+      - name: Release notes from the changelog
+        run: |
+          awk -v v="## ${{ inputs.version }}" '$0==v {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+          printf '\nInstall the APK below; it updates earlier versions in place.\n' >> notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ inputs.version }}
           target_commitish: ${{ github.sha }}
           name: okplayer ${{ inputs.version }}
-          generate_release_notes: true
+          body_path: notes.md
           files: okplayer-v${{ inputs.version }}.apk
