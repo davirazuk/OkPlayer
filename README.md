@@ -117,6 +117,22 @@ copied into the page's storage so they're still there next time. It installs as 
 app from Chrome. It's deployed to GitHub Pages from `main` once Pages is switched on
 under **Settings → Pages → Source: GitHub Actions**.
 
+It has the phone's library views (Artists, Albums, Songs, Recently added, Most
+played, Recently played), search, right-click or press-and-hold menus with **Play
+next** and **Add to Now Playing**, the equalizer, a sleep timer, and Windows Media
+Player's keyboard shortcuts:
+
+| Keys | |
+| --- | --- |
+| Ctrl+P or Space | Play / pause |
+| Ctrl+F / Ctrl+B | Next / previous |
+| Ctrl+H | Shuffle |
+| Ctrl+1 / Ctrl+3 | Library / Now Playing |
+| Ctrl+E | Search |
+| F7 / F8 / F9 | Mute / volume down / volume up |
+
+Drop files or folders anywhere on the window to add them.
+
 ## Build
 
 Requirements: JDK 17 and the Android SDK (API 35).

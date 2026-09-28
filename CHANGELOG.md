@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Web and desktop: **Artists, Songs, Recently added, Most played and Recently played**
+  views from the breadcrumb, **search**, Windows 7 **right-click menus** (Play next,
+  Add to Now Playing, Go to album / artist, Remove from play list), a **sleep timer**
+  with a fade-out, a **volume slider**, Windows Media Player's **keyboard
+  shortcuts**, and **drag and drop** to add music.
+
 ## 0.4.0
 
 - **PS Vita version** (`okplayer-vita-*.vpk`, install with VitaShell): album folders
