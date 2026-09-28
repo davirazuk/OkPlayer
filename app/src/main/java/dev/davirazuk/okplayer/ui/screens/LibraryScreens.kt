@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.text.format.DateUtils
+import dev.davirazuk.okplayer.data.PlayStat
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.Track
 import dev.davirazuk.okplayer.ui.components.MenuItem
@@ -80,6 +82,7 @@ fun LibraryScreen(
     onRefresh: () -> Unit,
     onOptions: () -> Unit,
     actions: QueueActions = QueueActions(),
+    stats: Map<String, PlayStat> = emptyMap(),
 ) {
     Column(Modifier.fillMaxSize()) {
         CommandBar {
@@ -105,7 +108,7 @@ fun LibraryScreen(
                     Modifier.padding(12.dp),
                 )
             } else {
-                LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong, actions)
+                LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong, actions, stats)
             }
         }
     }
@@ -149,7 +152,9 @@ private fun LibraryContent(
     onOpenArtist: (String) -> Unit,
     onPlaySong: (Album, Int) -> Unit,
     actions: QueueActions,
+    stats: Map<String, PlayStat>,
 ) {
+    val autoView = view in setOf(LibraryView.RecentlyAdded, LibraryView.MostPlayed, LibraryView.RecentlyPlayed)
     val albums = remember(all, query) {
         if (query.isEmpty()) all else all.filter { it.title.contains(query, true) || it.artist.contains(query, true) }
     }
@@ -162,12 +167,28 @@ private fun LibraryContent(
     val songs = remember(all, query, view) {
         val hits = all.flatMap { a -> a.tracks.indices.map { SongHit(a, it) } }
         when {
+            autoView -> emptyList()
             view == LibraryView.Songs && query.isEmpty() -> hits.sortedBy { it.track.title.lowercase() }
             query.isEmpty() -> emptyList()
             else -> hits.filter { it.track.title.contains(query, true) || (view == LibraryView.Songs && it.track.artist.contains(query, true)) }
                 .sortedBy { it.track.title.lowercase() }
                 .let { if (view == LibraryView.Songs) it else it.take(60) }
         }
+    }
+
+    val played = remember(all, view, stats, query) {
+        if (view != LibraryView.MostPlayed && view != LibraryView.RecentlyPlayed) return@remember emptyList()
+        all.flatMap { a -> a.tracks.indices.map { SongHit(a, it) } }
+            .filter { stats[it.track.id.toString()] != null }
+            .filter { query.isEmpty() || it.track.title.contains(query, true) || it.track.artist.contains(query, true) }
+            .let { list ->
+                if (view == LibraryView.MostPlayed) list.sortedByDescending { stats[it.track.id.toString()]?.count ?: 0 }
+                else list.sortedByDescending { stats[it.track.id.toString()]?.lastPlayedMs ?: 0 }
+            }
+            .take(100)
+    }
+    val recent = remember(albums, view) {
+        if (view == LibraryView.RecentlyAdded) albums.sortedByDescending { it.addedSec }.take(60) else emptyList()
     }
 
     LazyVerticalGrid(
@@ -181,6 +202,36 @@ private fun LibraryContent(
             LibraryView.Albums -> albums.isEmpty() && songs.isEmpty()
             LibraryView.Artists -> artists.isEmpty() && songs.isEmpty()
             LibraryView.Songs -> songs.isEmpty()
+            LibraryView.RecentlyAdded -> recent.isEmpty()
+            LibraryView.MostPlayed, LibraryView.RecentlyPlayed -> played.isEmpty()
+        }
+        if (query.isEmpty() && nothing && autoView) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    "Songs you play show up here once they've played through.",
+                    fontSize = 13.sp, color = Palette.Sub, modifier = Modifier.padding(12.dp),
+                )
+            }
+        }
+        if (recent.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader("Recently added") }
+            items(recent, key = { "recent-${it.id}" }) { album ->
+                AlbumTile(album, albumMenu(album, actions, { onOpenAlbum(album) }, { onPlaySong(album, 0) })) { onOpenAlbum(album) }
+            }
+        }
+        if (played.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { GroupHeader(view.label) }
+            items(played.size, span = { GridItemSpan(maxLineSpan) }) { i ->
+                val hit = played[i]
+                val stat = stats[hit.track.id.toString()]
+                val detail = when {
+                    stat == null -> hit.track.artist
+                    view == LibraryView.MostPlayed -> "${hit.track.artist} · ${plural(stat.count, "play")}"
+                    else -> "${hit.track.artist} · " + DateUtils.getRelativeTimeSpanString(stat.lastPlayedMs)
+                }
+                val play = { onPlaySong(hit.album, hit.index) }
+                SongRow(hit.track.title, detail, formatTime(hit.track.durationMs), songMenu(hit.track, actions, play), play)
+            }
         }
         if (query.isNotEmpty() && nothing) {
             item(span = { GridItemSpan(maxLineSpan) }) {

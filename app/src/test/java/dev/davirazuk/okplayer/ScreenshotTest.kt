@@ -12,6 +12,7 @@ import dev.davirazuk.okplayer.audio.OutputStatus
 import dev.davirazuk.okplayer.audio.Pipeline
 import dev.davirazuk.okplayer.audio.TrackInfo
 import dev.davirazuk.okplayer.data.LyricLine
+import dev.davirazuk.okplayer.data.PlayStat
 import dev.davirazuk.okplayer.data.Lyrics
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.Track
@@ -186,6 +187,17 @@ class ScreenshotTest {
     fun songs() = paparazzi.snapshot {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Songs", menu = listOf(MenuItem("Songs") {}))), dark = false) {
             LibraryScreen(LibraryState.Ready(albums), LibraryView.Songs, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    @Test
+    fun mostPlayed() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Most played", menu = listOf(MenuItem("Most played") {}))), dark = false) {
+            LibraryScreen(
+                LibraryState.Ready(albums), LibraryView.MostPlayed, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {},
+                onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {},
+                stats = mapOf("101" to PlayStat(42, 0), "104" to PlayStat(17, 0), "200" to PlayStat(9, 0), "301" to PlayStat(4, 0)),
+            )
         }
     }
 

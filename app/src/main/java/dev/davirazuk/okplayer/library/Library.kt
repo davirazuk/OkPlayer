@@ -22,6 +22,8 @@ data class Track(
     val durationMs: Long,
     val year: Int?,
     val mimeType: String?,
+    /** When the file appeared on the phone, in seconds since 1970. */
+    val dateAddedSec: Long = 0,
 ) {
     val artUri: Uri get() = albumArtUri(albumId)
 
@@ -54,6 +56,7 @@ data class Album(
 ) {
     val artUri: Uri get() = albumArtUri(id)
     val durationMs: Long get() = tracks.sumOf { it.durationMs }
+    val addedSec: Long get() = tracks.maxOfOrNull { it.dateAddedSec } ?: 0
 }
 
 private val ALBUM_ART = Uri.parse("content://media/external/audio/albumart")
@@ -100,6 +103,7 @@ class LibraryRepository(private val context: Context) {
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.DATE_ADDED,
         )
         val result = mutableListOf<Track>()
         context.contentResolver.query(collection, projection, selection, args, null)?.use { c ->
@@ -113,6 +117,7 @@ class LibraryRepository(private val context: Context) {
             val durationCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
             val yearCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
             val mimeCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val addedCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
 
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
@@ -133,6 +138,7 @@ class LibraryRepository(private val context: Context) {
                     durationMs = c.getLong(durationCol),
                     year = c.getInt(yearCol).takeIf { it > 0 },
                     mimeType = c.getString(mimeCol),
+                    dateAddedSec = c.getLong(addedCol),
                 )
             }
         }

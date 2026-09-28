@@ -42,7 +42,9 @@ import dev.davirazuk.okplayer.audio.LevelMeter
 import dev.davirazuk.okplayer.audio.MeteringAudioSink
 import dev.davirazuk.okplayer.audio.OutputState
 import dev.davirazuk.okplayer.audio.UsbDacRouter
+import dev.davirazuk.okplayer.data.PlayStats
 import dev.davirazuk.okplayer.data.PlaybackEvents
+import dev.davirazuk.okplayer.data.SleepTimer
 import dev.davirazuk.okplayer.data.Preferences
 import dev.davirazuk.okplayer.data.QueueStore
 import dev.davirazuk.okplayer.library.LibraryRepository
@@ -50,7 +52,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
+private const val FADE_MS = 10_000L
 
 class PlaybackService : MediaSessionService() {
 
@@ -63,6 +69,7 @@ class PlaybackService : MediaSessionService() {
 
     private var currentAudioMime: String? = null
     private var retriedMediaId: String? = null
+    private var lastMediaId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -131,6 +138,26 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         restoreQueue()
+        runSleepTimer()
+    }
+
+    /** Fades out over the last ten seconds, then pauses and restores the volume. */
+    private fun runSleepTimer() = scope.launch {
+        SleepTimer.endsAt.collectLatest { end ->
+            player.volume = 1f
+            if (end == null) return@collectLatest
+            while (true) {
+                val left = end - System.currentTimeMillis()
+                if (left <= 0) {
+                    player.pause()
+                    player.volume = 1f
+                    SleepTimer.cancel()
+                    return@collectLatest
+                }
+                if (left < FADE_MS) player.volume = left.toFloat() / FADE_MS
+                delay(if (left < FADE_MS) 100L else 1000L)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -168,8 +195,15 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // A song that ran to its end counts as played.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) lastMediaId?.let(PlayStats::record)
+            lastMediaId = mediaItem?.mediaId
             retriedMediaId = null
             saveQueue()
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) player.currentMediaItem?.mediaId?.let(PlayStats::record)
         }
 
         override fun onPlayerError(error: PlaybackException) = recover(error)
@@ -354,7 +388,15 @@ private class NoSkipPlayer(player: Player) : androidx.media3.common.ForwardingPl
     private val locked get() = Preferences.noSkipping.value
 
     override fun seekToNext() {
-        if (!locked) super.seekToNext()
+        if (locked) return
+        countIfMostlyHeard()
+        super.seekToNext()
+    }
+
+    /** Skipping a song after hearing most of it still counts as a play. */
+    private fun countIfMostlyHeard() {
+        val d = duration
+        if (d > 0 && currentPosition >= d * 0.6) currentMediaItem?.mediaId?.let(PlayStats::record)
     }
 
     override fun seekToNextMediaItem() {

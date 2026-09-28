@@ -50,6 +50,11 @@ import dev.davirazuk.okplayer.ui.LyricsState
 import dev.davirazuk.okplayer.ui.components.Aurora
 import dev.davirazuk.okplayer.ui.components.DiscWell
 import dev.davirazuk.okplayer.ui.components.EqualizerPanel
+import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.components.Win7Menu
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import dev.davirazuk.okplayer.ui.components.Lamp
 import dev.davirazuk.okplayer.ui.components.Lcd
 import dev.davirazuk.okplayer.ui.components.formatTime
@@ -75,11 +80,13 @@ fun NowPlayingScreen(
     onEqualizer: (Boolean) -> Unit,
     onEqualizerBand: (Int, Int) -> Unit,
     onEqualizerPreset: (String) -> Unit,
+    sleepEndsAt: Long? = null,
+    onSleep: (Int) -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize()) {
         Aurora(playing = state.isPlaying)
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            DeckTabs(deckView, onShowDeck)
+            DeckTabs(deckView, onShowDeck, sleepEndsAt, onSleep)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when (deckView) {
                     DeckView.Disc -> DiscWell(
@@ -132,10 +139,11 @@ fun NowPlayingScreen(
 }
 
 @Composable
-private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit) {
+private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(
             DeckView.Disc to "Disc",
@@ -158,7 +166,35 @@ private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit) {
                         else Modifier,
                     )
                     .clickable(role = Role.Tab) { onShow(view) }
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                    .padding(horizontal = 9.dp, vertical = 5.dp),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        SleepButton(sleepEndsAt, onSleep)
+    }
+}
+
+@Composable
+private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val left = endsAt?.let { ((it - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1) }
+    Box {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(3.dp))
+                .clickable(onClickLabel = "Sleep timer") { open = true }
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Glyphs.Moon, null, tint = if (left != null) Palette.Glow else Color(0xFFAEB6BF), modifier = Modifier.size(15.dp))
+            if (left != null) Text(" $left min", fontSize = 12.sp, color = Palette.Glow)
+        }
+        if (open) {
+            Win7Menu(
+                listOf(15, 30, 45, 60, 90).map { m -> MenuItem("Stop in $m minutes") { onSleep(m) } } +
+                    listOfNotNull(if (endsAt != null) MenuItem("Turn off sleep timer") { onSleep(0) } else null),
+                onDismiss = { open = false },
+                offsetY = 30.dp,
             )
         }
     }

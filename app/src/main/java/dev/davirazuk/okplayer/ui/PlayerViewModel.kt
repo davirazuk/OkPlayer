@@ -7,7 +7,9 @@ import dev.davirazuk.okplayer.audio.EqualizerControl
 import dev.davirazuk.okplayer.audio.OutputState
 import dev.davirazuk.okplayer.data.Lyrics
 import dev.davirazuk.okplayer.data.LyricsRepository
+import dev.davirazuk.okplayer.data.PlayStats
 import dev.davirazuk.okplayer.data.PlaybackEvents
+import dev.davirazuk.okplayer.data.SleepTimer
 import dev.davirazuk.okplayer.data.Preferences
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.LibraryRepository
@@ -29,7 +31,14 @@ sealed interface LibraryState {
 }
 
 /** How the library is browsed, as in WMP's Artist / Album / Songs views. */
-enum class LibraryView(val label: String) { Artists("Artists"), Albums("Albums"), Songs("Songs") }
+enum class LibraryView(val label: String) {
+    Artists("Artists"),
+    Albums("Albums"),
+    Songs("Songs"),
+    RecentlyAdded("Recently added"),
+    MostPlayed("Most played"),
+    RecentlyPlayed("Recently played"),
+}
 
 sealed interface Screen {
     data object Library : Screen
@@ -79,6 +88,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val trackInfo = OutputState.track
     val pipeline = OutputState.pipeline
     val equalizer = EqualizerControl.state
+    val playStats = PlayStats.stats
+    val sleepEndsAt = SleepTimer.endsAt
     val equalizerPresets = EqualizerControl.presets.keys.toList()
     val notice = PlaybackEvents.notice
     val ratings = Preferences.ratings
@@ -238,6 +249,17 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun rate(mediaId: String, stars: Int) {
         Preferences.rate(mediaId, stars)
+    }
+
+    /** Minutes, or 0 to turn the timer off. */
+    fun setSleepTimer(minutes: Int) {
+        if (minutes <= 0) {
+            SleepTimer.cancel()
+            PlaybackEvents.post("Sleep timer off.", isError = false)
+        } else {
+            SleepTimer.start(minutes)
+            PlaybackEvents.post("Music stops in $minutes minutes.", isError = false)
+        }
     }
 
     fun setEqualizer(enabled: Boolean) = EqualizerControl.setEnabled(enabled)

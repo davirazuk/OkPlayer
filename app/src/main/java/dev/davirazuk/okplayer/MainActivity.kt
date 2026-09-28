@@ -45,6 +45,8 @@ import dev.davirazuk.okplayer.ui.components.MenuItem
 import dev.davirazuk.okplayer.ui.components.NowPlayingInfo
 import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.screens.ArtistScreen
+import dev.davirazuk.okplayer.ui.screens.QueueActions
+import androidx.compose.runtime.remember
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
 import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
@@ -90,6 +92,9 @@ private fun App(vm: PlayerViewModel) {
     val query by vm.query.collectAsStateWithLifecycle()
     val libraryView by vm.libraryView.collectAsStateWithLifecycle()
     val equalizer by vm.equalizer.collectAsStateWithLifecycle()
+    val playStats by vm.playStats.collectAsStateWithLifecycle()
+    val sleepEndsAt by vm.sleepEndsAt.collectAsStateWithLifecycle()
+    val queueActions = remember(vm) { QueueActions(playNext = vm::playNext, enqueue = vm::enqueue) }
 
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[audioPermission] == true) vm.onPermissionGranted()
@@ -166,6 +171,8 @@ private fun App(vm: PlayerViewModel) {
                     onPlaySong = { album, index -> vm.playAlbum(album, index) },
                     onRefresh = vm::refresh,
                     onOptions = { vm.open(Screen.Options) },
+                    actions = queueActions,
+                    stats = playStats,
                 )
 
                 is Screen.AlbumDetail -> {
@@ -179,6 +186,7 @@ private fun App(vm: PlayerViewModel) {
                             ratings = ratings,
                             noSkipping = noSkipping,
                             onPlay = { index, shuffle -> vm.playAlbum(album, index, shuffle) },
+                            actions = queueActions,
                         )
                     }
                 }
@@ -189,6 +197,8 @@ private fun App(vm: PlayerViewModel) {
                     noSkipping = noSkipping,
                     onOpenAlbum = { vm.open(Screen.AlbumDetail(it.id)) },
                     onPlayAll = { shuffle -> vm.playArtist(target.artist, shuffle) },
+                    onPlayAlbum = { vm.playAlbum(it) },
+                    actions = queueActions,
                 )
 
                 Screen.NowPlaying -> NowPlayingScreen(
@@ -209,6 +219,8 @@ private fun App(vm: PlayerViewModel) {
                     onEqualizer = vm::setEqualizer,
                     onEqualizerBand = vm::setEqualizerBand,
                     onEqualizerPreset = vm::applyEqualizerPreset,
+                    sleepEndsAt = sleepEndsAt,
+                    onSleep = vm::setSleepTimer,
                 )
 
                 Screen.Options -> OptionsScreen(
