@@ -339,7 +339,9 @@ void player_shutdown(void) {
     sceKernelDeleteMutex(P.mutex);
 }
 
-void player_play(const char *const *paths, int count, int start) {
+void player_play(const char *const *paths, int count, int start) { player_open(paths, count, start, 0, 0); }
+
+void player_open(const char *const *paths, int count, int start, uint64_t position_ms, int paused) {
     lock();
     for (int i = 0; i < P.count; i++) free(P.paths[i]);
     if (count > PLAYER_MAX_QUEUE) count = PLAYER_MAX_QUEUE;
@@ -348,7 +350,10 @@ void player_play(const char *const *paths, int count, int start) {
     P.index = start;
     make_order(1);
     P.error[0] = 0;
-    if (count > 0 && load_current()) P.state = PLAYER_PLAYING;
+    if (count > 0 && load_current()) {
+        if (position_ms) dec_seek(&P.dec, position_ms * P.dec.rate / 1000);
+        P.state = paused ? PLAYER_PAUSED : PLAYER_PLAYING;
+    }
     unlock();
 }
 

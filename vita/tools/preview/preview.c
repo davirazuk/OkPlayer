@@ -16,6 +16,7 @@ static const char *fake_path;
 int player_init(void) { return 1; }
 void player_shutdown(void) {}
 void player_play(const char *const *paths, int count, int start) { (void)paths; (void)count; (void)start; }
+void player_open(const char *const *p, int c, int s, uint64_t ms, int paused) { (void)p; (void)c; (void)s; (void)ms; (void)paused; }
 void player_toggle(void) {}
 void player_next(void) {}
 void player_previous(void) {}

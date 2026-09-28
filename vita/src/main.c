@@ -12,6 +12,7 @@
 #include <time.h>
 
 #include <psp2/ctrl.h>
+#include <psp2/io/stat.h>
 #include <psp2/kernel/processmgr.h>
 #include <psp2/touch.h>
 #include <vita2d.h>
@@ -264,6 +265,44 @@ static void play_album(int album, int start, int shuffle) {
     player_play(paths, a->song_count, start);
     free(paths);
     playing_album = album;
+}
+
+/* ---------- resume where you left off ---------- */
+
+#define STATE_DIR "ux0:data/okplayer"
+#define STATE_FILE STATE_DIR "/state.txt"
+
+static void save_state(const PlayerStatus *st) {
+    const char *path = player_current_path();
+    if (!path) return;
+    sceIoMkdir(STATE_DIR, 0777);
+    FILE *f = fopen(STATE_FILE, "w");
+    if (!f) return;
+    fprintf(f, "%s\n%llu\n", path, (unsigned long long)st->position_ms);
+    fclose(f);
+}
+
+static void restore_state(void) {
+    FILE *f = fopen(STATE_FILE, "r");
+    if (!f) return;
+    char path[512];
+    unsigned long long pos = 0;
+    if (fgets(path, sizeof path, f) && fscanf(f, "%llu", &pos) == 1) {
+        path[strcspn(path, "\r\n")] = 0;
+        int a, s;
+        find_song(path, &a, &s);
+        if (a >= 0) {
+            library_load_tags(&lib.albums[a]);
+            find_song(path, &a, &s); /* tags may have re-sorted the album */
+            Album *al = &lib.albums[a];
+            const char **paths = malloc(sizeof(char *) * al->song_count);
+            for (int i = 0; i < al->song_count; i++) paths[i] = al->songs[i].path;
+            player_open(paths, al->song_count, s, pos, 1);
+            free(paths);
+            playing_album = a;
+        }
+    }
+    fclose(f);
 }
 
 static void play_everything_shuffled(void) {
@@ -682,6 +721,9 @@ int main(void) {
     covers = calloc(lib.count ? lib.count : 1, sizeof(*covers));
     cover_tried = calloc(lib.count ? lib.count : 1, 1);
     player_init();
+    restore_state();
+    int save_frames = 0;
+    PlayerState last_state = PLAYER_STOPPED;
 
     unsigned old = 0;
     int hold = 0, touching = 0, tx = 0, ty = 0;
@@ -740,6 +782,14 @@ int main(void) {
         if (disc_angle > 6.2831853f) disc_angle -= 6.2831853f;
 
         if (st.state == PLAYER_PLAYING) sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DISABLE_AUTO_SUSPEND);
+
+        /* Save on every pause and every 15 seconds of playback, so a crash or the PS button
+           never loses more than that. */
+        if ((st.state != last_state && st.state != PLAYER_PLAYING) || (st.state == PLAYER_PLAYING && ++save_frames >= 60 * 15)) {
+            save_state(&st);
+            save_frames = 0;
+        }
+        last_state = st.state;
 
         char title[200], crumb[200];
         if (st.index >= 0 && cur_song >= 0) {

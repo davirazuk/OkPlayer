@@ -29,6 +29,9 @@ void player_shutdown(void);
 
 /* Replaces the queue with the given files and starts at `start`. Paths are copied. */
 void player_play(const char *const *paths, int count, int start);
+
+/* Like player_play, starting at position_ms and optionally paused (used to resume). */
+void player_open(const char *const *paths, int count, int start, uint64_t position_ms, int paused);
 void player_toggle(void);
 void player_next(void);
 void player_previous(void);
