@@ -50,6 +50,8 @@ object EqualizerControl {
     /** Attaches to the player's audio session; call again if the session changes. */
     fun attach(audioSessionId: Int) {
         release()
+        // Session 0 is the global mix; never touch other apps' sound.
+        if (audioSessionId <= 0) return
         val effect = runCatching { Equalizer(0, audioSessionId) }.getOrNull()
         if (effect == null) {
             _state.value = EqState(available = false)
