@@ -91,7 +91,7 @@ fun OptionsScreen(
         }
 
         GroupHeader("About")
-        Detail("okplayer ${BuildConfig.VERSION_NAME}. Free software under the GPL-3.0.\ngithub.com/davirazuk/okplayer")
+        Detail("okplayer ${BuildConfig.VERSION_NAME}. Free software under the GPL-3.0.\ngithub.com/davirazuk/OkPlayer")
     }
 }
 

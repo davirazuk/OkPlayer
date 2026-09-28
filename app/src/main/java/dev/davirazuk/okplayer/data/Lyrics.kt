@@ -129,7 +129,7 @@ class LyricsRepository(private val context: Context) {
         return try {
             c.connectTimeout = 8000
             c.readTimeout = 8000
-            c.setRequestProperty("User-Agent", "okplayer/${BuildConfig.VERSION_NAME} (https://github.com/davirazuk/okplayer)")
+            c.setRequestProperty("User-Agent", "okplayer/${BuildConfig.VERSION_NAME} (https://github.com/davirazuk/OkPlayer)")
             if (c.responseCode == 200) c.inputStream.bufferedReader().use { it.readText() } else null
         } finally {
             c.disconnect()

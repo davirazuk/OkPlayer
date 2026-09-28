@@ -5,16 +5,16 @@ on Windows 7, built for playing albums the way they were sequenced and for getti
 them to a USB DAC untouched.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlaying.png" width="24%" alt="Now Playing: the CD deck and LCD">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingLyrics.png" width="24%" alt="Synced lyrics">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_library.png" width="24%" alt="Album library">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_album.png" width="24%" alt="Album with ratings">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlaying.png" width="24%" alt="Now Playing: the CD deck and LCD">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingLyrics.png" width="24%" alt="Synced lyrics">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_library.png" width="24%" alt="Album library">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_album.png" width="24%" alt="Album with ratings">
 </p>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingEqualizer.png" width="24%" alt="Graphic equalizer">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_artists.png" width="24%" alt="Artists">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingPlayList.png" width="24%" alt="Play list">
-  <img src="https://raw.githubusercontent.com/davirazuk/okplayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_options.png" width="24%" alt="Options">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingEqualizer.png" width="24%" alt="Graphic equalizer">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_artists.png" width="24%" alt="Artists">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingPlayList.png" width="24%" alt="Play list">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_options.png" width="24%" alt="Options">
 </p>
 
 <sub>Rendered from the code on every push (sample library, placeholder covers).</sub>
