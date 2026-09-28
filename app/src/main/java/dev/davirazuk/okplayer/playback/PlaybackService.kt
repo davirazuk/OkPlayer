@@ -31,12 +31,14 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.mp3.Mp3Extractor
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import dev.davirazuk.okplayer.MainActivity
+import dev.davirazuk.okplayer.R
 import dev.davirazuk.okplayer.audio.EqualizerControl
 import dev.davirazuk.okplayer.audio.LevelMeter
 import dev.davirazuk.okplayer.audio.MeteringAudioSink
@@ -136,6 +138,10 @@ class PlaybackService : MediaSessionService() {
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat_okplayer) },
+        )
+
         session = MediaSession.Builder(this, NoSkipPlayer(player))
             .setSessionActivity(openApp)
             .setCallback(callback)
