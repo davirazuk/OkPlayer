@@ -5,7 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.BoxScope
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
+import androidx.media3.common.C
 import dev.davirazuk.okplayer.audio.OutputStatus
+import dev.davirazuk.okplayer.audio.Pipeline
 import dev.davirazuk.okplayer.audio.TrackInfo
 import dev.davirazuk.okplayer.data.LyricLine
 import dev.davirazuk.okplayer.data.Lyrics
@@ -150,6 +152,7 @@ class ScreenshotTest {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Options")), dark = false) {
             OptionsScreen(
                 hiResOutput = true, noSkipping = false, builtInDecoder = false, onlineLyrics = true, output = usb, track = flac,
+                pipeline = Pipeline("ffmpeg6.0-flac", 44_100, C.ENCODING_PCM_FLOAT),
                 onHiRes = {}, onNoSkipping = {}, onBuiltInDecoder = {}, onOnlineLyrics = {},
             )
         }

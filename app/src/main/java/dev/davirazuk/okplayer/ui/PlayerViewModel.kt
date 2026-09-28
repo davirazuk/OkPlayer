@@ -68,6 +68,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val queue = connection.queue
     val output = OutputState.status
     val trackInfo = OutputState.track
+    val pipeline = OutputState.pipeline
     val notice = PlaybackEvents.notice
     val ratings = Preferences.ratings
     val noSkipping = Preferences.noSkipping

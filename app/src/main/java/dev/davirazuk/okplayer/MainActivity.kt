@@ -74,6 +74,7 @@ private fun App(vm: PlayerViewModel) {
     val queue by vm.queue.collectAsStateWithLifecycle()
     val output by vm.output.collectAsStateWithLifecycle()
     val track by vm.trackInfo.collectAsStateWithLifecycle()
+    val pipeline by vm.pipeline.collectAsStateWithLifecycle()
     val ratings by vm.ratings.collectAsStateWithLifecycle()
     val noSkipping by vm.noSkipping.collectAsStateWithLifecycle()
     val hiRes by vm.hiResOutput.collectAsStateWithLifecycle()
@@ -192,6 +193,7 @@ private fun App(vm: PlayerViewModel) {
                     onlineLyrics = onlineLyrics,
                     output = output,
                     track = track,
+                    pipeline = pipeline,
                     onHiRes = vm::setHiResOutput,
                     onNoSkipping = vm::setNoSkipping,
                     onBuiltInDecoder = vm::setBuiltInDecoder,

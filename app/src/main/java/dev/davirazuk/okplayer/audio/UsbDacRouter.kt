@@ -28,6 +28,18 @@ data class TrackInfo(
     val lossless: Boolean,
 )
 
+data class Pipeline(val decoder: String? = null, val pcmRate: Int? = null, val pcmEncoding: Int? = null) {
+    val pcmLabel: String?
+        get() = when (pcmEncoding) {
+            null -> null
+            C.ENCODING_PCM_16BIT -> "16-bit"
+            C.ENCODING_PCM_24BIT -> "24-bit"
+            C.ENCODING_PCM_32BIT -> "32-bit"
+            C.ENCODING_PCM_FLOAT -> "32-bit float"
+            else -> "PCM $pcmEncoding"
+        }
+}
+
 /** Where the sound goes and whether it arrives untouched. */
 sealed interface OutputStatus {
     data object Idle : OutputStatus
@@ -49,6 +61,19 @@ object OutputState {
 
     private val _track = MutableStateFlow<TrackInfo?>(null)
     val track: StateFlow<TrackInfo?> = _track.asStateFlow()
+
+    private val _pipeline = MutableStateFlow(Pipeline())
+
+    /** Which decoder is running and what it hands the audio output, for Options. */
+    val pipeline: StateFlow<Pipeline> = _pipeline.asStateFlow()
+
+    internal fun setDecoder(name: String) {
+        _pipeline.value = _pipeline.value.copy(decoder = name)
+    }
+
+    internal fun setPcm(sampleRate: Int, encoding: Int) {
+        _pipeline.value = _pipeline.value.copy(pcmRate = sampleRate, pcmEncoding = encoding)
+    }
 
     internal fun set(status: OutputStatus) {
         _status.value = status

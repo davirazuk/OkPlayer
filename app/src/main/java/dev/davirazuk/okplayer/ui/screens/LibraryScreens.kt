@@ -115,7 +115,7 @@ private fun AlbumGrid(all: List<Album>, query: String, onOpenAlbum: (Album) -> U
         else all.flatMap { a -> a.tracks.mapIndexedNotNull { i, t -> if (t.title.contains(query, true)) SongHit(a, i) else null } }.take(60)
     }
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(132.dp),
+        columns = GridCells.Adaptive(108.dp),
         contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),

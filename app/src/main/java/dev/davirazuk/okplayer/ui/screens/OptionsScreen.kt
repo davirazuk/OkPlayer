@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.davirazuk.okplayer.BuildConfig
 import dev.davirazuk.okplayer.audio.OutputStatus
+import dev.davirazuk.okplayer.audio.Pipeline
 import dev.davirazuk.okplayer.audio.TrackInfo
 import dev.davirazuk.okplayer.audio.formatRate
 import dev.davirazuk.okplayer.ui.components.GroupHeader
@@ -26,6 +27,7 @@ fun OptionsScreen(
     onlineLyrics: Boolean,
     output: OutputStatus,
     track: TrackInfo?,
+    pipeline: Pipeline,
     onHiRes: (Boolean) -> Unit,
     onNoSkipping: (Boolean) -> Unit,
     onBuiltInDecoder: (Boolean) -> Unit,
@@ -81,6 +83,11 @@ fun OptionsScreen(
                     track.bitrate?.takeIf { it > 0 }?.let { "${it / 1000} kbps" },
                 ).joinToString(", ").let { "This song: $it" },
             )
+        }
+        pipeline.decoder?.let { decoder ->
+            val shown = if (decoder.startsWith("ffmpeg")) "FFmpeg (built-in)" else "Phone ($decoder)"
+            val pcm = listOfNotNull(pipeline.pcmLabel, pipeline.pcmRate?.let(::formatRate)).joinToString(" at ")
+            Detail("Decoder: $shown" + if (pcm.isNotEmpty()) "\nDecoded to: $pcm" else "")
         }
 
         GroupHeader("About")

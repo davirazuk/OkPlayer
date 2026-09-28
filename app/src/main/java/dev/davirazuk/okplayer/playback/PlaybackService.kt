@@ -23,7 +23,9 @@ import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -37,6 +39,7 @@ import com.google.common.util.concurrent.SettableFuture
 import dev.davirazuk.okplayer.MainActivity
 import dev.davirazuk.okplayer.audio.LevelMeter
 import dev.davirazuk.okplayer.audio.MeteringAudioSink
+import dev.davirazuk.okplayer.audio.OutputState
 import dev.davirazuk.okplayer.audio.UsbDacRouter
 import dev.davirazuk.okplayer.data.PlaybackEvents
 import dev.davirazuk.okplayer.data.Preferences
@@ -77,11 +80,17 @@ class PlaybackService : MediaSessionService() {
         val sink = MeteringAudioSink(
             DefaultAudioSink.Builder(this).setEnableFloatOutput(true).build(),
             floatAllowed = hiResToDac,
-        ) { rate, encoding -> router.onOutputPcm(rate, outputEncoding(encoding)) }
+        ) { rate, encoding ->
+            OutputState.setPcm(rate, encoding)
+            router.onOutputPcm(rate, outputEncoding(encoding))
+        }
 
+        // Phone decoders never get asked for float: some (Samsung's among them) say they
+        // output float but hand back 16-bit samples, which plays twice as fast and distorted.
+        val phoneSink = NoFloatAudioSink(sink)
         val renderers = RenderersFactory { handler, _, audioListener, _, _ ->
             arrayOf<Renderer>(
-                PlatformAudioRenderer(this, handler, audioListener, sink),
+                PlatformAudioRenderer(this, handler, audioListener, phoneSink),
                 FfmpegAudioRenderer(handler, audioListener, sink),
             )
         }
@@ -97,6 +106,14 @@ class PlaybackService : MediaSessionService() {
 
         router.start()
         player.addListener(listener)
+        player.addAnalyticsListener(object : AnalyticsListener {
+            override fun onAudioDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long,
+            ) = OutputState.setDecoder(decoderName)
+        })
 
         val openApp = PendingIntent.getActivity(
             this, 0,
@@ -268,6 +285,18 @@ object DecoderPolicy {
         if (mime == null || !FfmpegLibrary.isAvailable() || !FfmpegLibrary.supportsFormat(mime)) return false
         return Preferences.builtInDecoder.value || mime in forcedBuiltIn || (mime in lossless && hiResToDac())
     }
+}
+
+/** Shares the real sink but tells the phone's decoders float PCM would need converting. */
+private class NoFloatAudioSink(sink: AudioSink) : ForwardingAudioSink(sink) {
+    override fun getFormatSupport(format: Format): Int =
+        if (format.sampleMimeType == MimeTypes.AUDIO_RAW && format.pcmEncoding == C.ENCODING_PCM_FLOAT) {
+            AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING
+        } else {
+            super.getFormatSupport(format)
+        }
+
+    override fun supportsFormat(format: Format): Boolean = getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
 }
 
 /** The phone's MediaCodec decoders, stepping aside for formats [DecoderPolicy] routes to FFmpeg. */
