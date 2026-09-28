@@ -2,6 +2,7 @@ package dev.davirazuk.okplayer.ui.components
 
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -38,6 +39,11 @@ fun Disc(artUri: Uri?, playing: Boolean, modifier: Modifier = Modifier, name: St
 
     LaunchedEffect(playing) {
         if (playing) {
+            // Spin up over the first half turn instead of jumping to full speed.
+            angle.animateTo(
+                angle.value + 180f,
+                tween(durationMillis = (SECONDS_PER_TURN * 1000).toInt(), easing = FastOutLinearInEasing),
+            )
             while (isActive) {
                 angle.snapTo(angle.value % 360f)
                 angle.animateTo(

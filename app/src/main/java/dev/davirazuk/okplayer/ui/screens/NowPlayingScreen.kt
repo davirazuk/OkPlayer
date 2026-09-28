@@ -121,6 +121,7 @@ fun NowPlayingScreen(
                 ),
                 format = track?.let(::formatLabel) ?: "",
                 modifier = Modifier.padding(horizontal = 18.dp),
+                blinkTime = !state.isEmpty && !state.isPlaying,
             )
 
             if (deckView == DeckView.Disc) CurrentLyric(lyrics, state.positionMs)

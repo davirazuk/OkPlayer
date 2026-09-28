@@ -27,6 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -97,8 +102,17 @@ fun Lcd(
     lamps: List<Lamp>,
     format: String,
     modifier: Modifier = Modifier,
+    blinkTime: Boolean = false,
 ) {
     val shape = RoundedCornerShape(4.dp)
+    // A paused CD player blinks its time display.
+    val blink = rememberInfiniteTransition(label = "blink")
+    val timeAlpha by blink.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(keyframes { durationMillis = 1000; 1f at 0; 1f at 550; 0.15f at 560; 0.15f at 1000 }),
+        label = "time",
+    )
     Column(
         modifier
             .widthIn(max = 360.dp)
@@ -119,7 +133,7 @@ fun Lcd(
             Text("TRACK", style = lcd(10.sp, spacing = 0.14.sp), modifier = Modifier.padding(end = 6.dp, bottom = 5.dp))
             Text(track, style = lcd(30.sp))
             Spacer(Modifier.weight(1f))
-            Text(time, style = lcd(30.sp))
+            Text(time, style = lcd(30.sp), modifier = Modifier.alpha(if (blinkTime) timeAlpha else 1f))
         }
         Text(
             title.uppercase(),

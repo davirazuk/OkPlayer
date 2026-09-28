@@ -62,7 +62,9 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import dev.davirazuk.okplayer.ui.theme.Glyphs
 import dev.davirazuk.okplayer.ui.theme.Palette
 
@@ -475,7 +477,7 @@ fun Artwork(uri: Uri?, modifier: Modifier = Modifier, name: String? = null) {
         Box(modifier) { placeholder() }
     } else {
         SubcomposeAsyncImage(
-            model = uri,
+            model = ImageRequest.Builder(LocalContext.current).data(uri).crossfade(250).build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = modifier,
