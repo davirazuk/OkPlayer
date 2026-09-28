@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import dev.davirazuk.okplayer.MainActivity
+import dev.davirazuk.okplayer.audio.EqualizerControl
 import dev.davirazuk.okplayer.audio.LevelMeter
 import dev.davirazuk.okplayer.audio.MeteringAudioSink
 import dev.davirazuk.okplayer.audio.OutputState
@@ -113,7 +114,11 @@ class PlaybackService : MediaSessionService() {
                 initializedTimestampMs: Long,
                 initializationDurationMs: Long,
             ) = OutputState.setDecoder(decoderName)
+
+            override fun onAudioSessionIdChanged(eventTime: AnalyticsListener.EventTime, audioSessionId: Int) =
+                EqualizerControl.attach(audioSessionId)
         })
+        EqualizerControl.attach(player.audioSessionId)
 
         val openApp = PendingIntent.getActivity(
             this, 0,
@@ -138,6 +143,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         saveQueue()
         scope.cancel()
+        EqualizerControl.release()
         router.stop()
         session?.run {
             player.release()

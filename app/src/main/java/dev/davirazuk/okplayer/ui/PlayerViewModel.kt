@@ -3,6 +3,7 @@ package dev.davirazuk.okplayer.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.davirazuk.okplayer.audio.EqualizerControl
 import dev.davirazuk.okplayer.audio.OutputState
 import dev.davirazuk.okplayer.data.Lyrics
 import dev.davirazuk.okplayer.data.LyricsRepository
@@ -38,7 +39,7 @@ sealed interface Screen {
 }
 
 /** What fills the top of the Now Playing pane. */
-enum class DeckView { Disc, Lyrics, PlayList }
+enum class DeckView { Disc, Lyrics, PlayList, Equalizer }
 
 sealed interface LyricsState {
     data object None : LyricsState
@@ -76,6 +77,8 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val output = OutputState.status
     val trackInfo = OutputState.track
     val pipeline = OutputState.pipeline
+    val equalizer = EqualizerControl.state
+    val equalizerPresets = EqualizerControl.presets.keys.toList()
     val notice = PlaybackEvents.notice
     val ratings = Preferences.ratings
     val noSkipping = Preferences.noSkipping
@@ -225,6 +228,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun rate(mediaId: String, stars: Int) {
         Preferences.rate(mediaId, stars)
     }
+
+    fun setEqualizer(enabled: Boolean) = EqualizerControl.setEnabled(enabled)
+
+    fun setEqualizerBand(index: Int, levelMb: Int) = EqualizerControl.setBand(index, levelMb)
+
+    fun applyEqualizerPreset(name: String) = EqualizerControl.applyPreset(name)
 
     fun dismissNotice(id: Long) {
         PlaybackEvents.dismiss(id)

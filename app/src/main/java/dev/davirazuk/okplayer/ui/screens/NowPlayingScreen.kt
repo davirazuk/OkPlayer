@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.davirazuk.okplayer.audio.EqState
 import dev.davirazuk.okplayer.audio.OutputStatus
 import dev.davirazuk.okplayer.audio.TrackInfo
 import dev.davirazuk.okplayer.playback.NowPlaying
@@ -48,6 +49,7 @@ import dev.davirazuk.okplayer.ui.DeckView
 import dev.davirazuk.okplayer.ui.LyricsState
 import dev.davirazuk.okplayer.ui.components.Aurora
 import dev.davirazuk.okplayer.ui.components.DiscWell
+import dev.davirazuk.okplayer.ui.components.EqualizerPanel
 import dev.davirazuk.okplayer.ui.components.Lamp
 import dev.davirazuk.okplayer.ui.components.Lcd
 import dev.davirazuk.okplayer.ui.components.formatTime
@@ -65,9 +67,14 @@ fun NowPlayingScreen(
     lyrics: LyricsState,
     queue: List<QueueEntry>,
     onlineLyrics: Boolean,
+    equalizer: EqState,
+    equalizerPresets: List<String>,
     onRate: (Int) -> Unit,
     onShowDeck: (DeckView) -> Unit,
     onPlayAt: (Int) -> Unit,
+    onEqualizer: (Boolean) -> Unit,
+    onEqualizerBand: (Int, Int) -> Unit,
+    onEqualizerPreset: (String) -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
         Aurora(playing = state.isPlaying)
@@ -82,6 +89,14 @@ fun NowPlayingScreen(
                     )
                     DeckView.Lyrics -> LyricsView(lyrics, state.positionMs, onlineLyrics)
                     DeckView.PlayList -> PlayListView(queue, state.index, onPlayAt)
+                    DeckView.Equalizer -> EqualizerPanel(
+                        state = equalizer,
+                        presets = equalizerPresets,
+                        onEnabled = onEqualizer,
+                        onBand = onEqualizerBand,
+                        onPreset = onEqualizerPreset,
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                    )
                 }
             }
 
@@ -121,7 +136,12 @@ private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit) {
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        listOf(DeckView.Disc to "Disc", DeckView.Lyrics to "Lyrics", DeckView.PlayList to "Play list").forEach { (view, label) ->
+        listOf(
+            DeckView.Disc to "Disc",
+            DeckView.Lyrics to "Lyrics",
+            DeckView.PlayList to "Play list",
+            DeckView.Equalizer to "Equalizer",
+        ).forEach { (view, label) ->
             val on = view == current
             val shape = RoundedCornerShape(3.dp)
             Text(
@@ -225,7 +245,7 @@ private fun PlayListView(queue: List<QueueEntry>, currentIndex: Int, onPlayAt: (
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(50.dp)
                     .clip(shape)
                     .then(
                         if (current) Modifier
@@ -239,8 +259,14 @@ private fun PlayListView(queue: List<QueueEntry>, currentIndex: Int, onPlayAt: (
             ) {
                 Text("${i + 1}", fontSize = 12.sp, color = if (current) Color.White else Color(0xFF6F7C89), modifier = Modifier.width(28.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(entry.title, fontSize = 13.sp, color = if (current) Color.White else Color(0xFFDCE3EA), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(entry.artist, fontSize = 11.sp, color = if (current) Color(0xFFBFDDF5) else Color(0xFF7F8B98), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        entry.title, fontSize = 13.5.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (current) Color.White else Color(0xFFDCE3EA),
+                    )
+                    Text(
+                        entry.artist, fontSize = 11.5.sp, lineHeight = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = if (current) Color(0xFFBFDDF5) else Color(0xFF7F8B98),
+                    )
                 }
             }
         }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
 object Palette {
@@ -59,6 +60,8 @@ private val scheme = lightColorScheme(
 
 /** Windows 7 sets almost everything at one size; hierarchy comes from colour, not weight. */
 private val type = Typography(
+    // The default for every Text; line height follows the font size instead of a fixed 24sp.
+    bodyLarge = TextStyle(fontSize = 14.sp, lineHeight = 1.3.em),
     titleLarge = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Normal, color = Palette.Heading),
     titleMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal),
     bodyMedium = TextStyle(fontSize = 13.5.sp),

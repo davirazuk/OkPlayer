@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.BoxScope
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import androidx.media3.common.C
+import dev.davirazuk.okplayer.audio.EqBand
+import dev.davirazuk.okplayer.audio.EqState
 import dev.davirazuk.okplayer.audio.OutputStatus
 import dev.davirazuk.okplayer.audio.Pipeline
 import dev.davirazuk.okplayer.audio.TrackInfo
@@ -22,6 +24,7 @@ import dev.davirazuk.okplayer.ui.components.AeroWindow
 import dev.davirazuk.okplayer.ui.components.ControlBar
 import dev.davirazuk.okplayer.ui.components.Crumb
 import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.components.NowPlayingInfo
 import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
@@ -99,6 +102,7 @@ class ScreenshotTest {
                         positionMs = state.positionMs, durationMs = state.durationMs, enabled = !state.isEmpty,
                         isPlaying = state.isPlaying, shuffle = false, noSkipping = false, canGoNext = true,
                         onSeek = {}, onTogglePlay = {}, onPrevious = {}, onNext = {}, onShuffle = {}, onNoSkipping = {}, onSwitchView = {},
+                        nowPlaying = if (dark || state.isEmpty) null else NowPlayingInfo(state.title, state.artist, null),
                     )
                 },
                 content = content,
@@ -112,7 +116,8 @@ class ScreenshotTest {
             state = playing, track = flac, output = usb, rating = 5, noSkipping = false, deckView = view,
             lyrics = lyrics, onlineLyrics = true,
             queue = okComputer.mapIndexed { i, (t, _) -> QueueEntry("${100 + i}", t, "Radiohead") },
-            onRate = {}, onShowDeck = {}, onPlayAt = {},
+            equalizer = eq, equalizerPresets = listOf("Flat", "Rock", "Custom"),
+            onRate = {}, onShowDeck = {}, onPlayAt = {}, onEqualizer = {}, onEqualizerBand = { _, _ -> }, onEqualizerPreset = {},
         )
     }
 
@@ -121,6 +126,14 @@ class ScreenshotTest {
 
     @Test
     fun nowPlayingLyrics() = paparazzi.snapshot { NowPlayingIn(DeckView.Lyrics) }
+
+    private val eq = EqState(
+        available = true, enabled = true, preset = "Rock",
+        bands = listOf(EqBand(60, 600), EqBand(230, 300), EqBand(910, -240), EqBand(3600, 300), EqBand(14000, 660)),
+    )
+
+    @Test
+    fun nowPlayingEqualizer() = paparazzi.snapshot { NowPlayingIn(DeckView.Equalizer) }
 
     @Test
     fun nowPlayingPlayList() = paparazzi.snapshot { NowPlayingIn(DeckView.PlayList) }
@@ -131,7 +144,8 @@ class ScreenshotTest {
             NowPlayingScreen(
                 state = NowPlaying(), track = null, output = OutputStatus.Idle, rating = 0, noSkipping = false,
                 deckView = DeckView.Disc, lyrics = LyricsState.None, onlineLyrics = true, queue = emptyList(),
-                onRate = {}, onShowDeck = {}, onPlayAt = {},
+                equalizer = EqState(), equalizerPresets = emptyList(),
+                onRate = {}, onShowDeck = {}, onPlayAt = {}, onEqualizer = {}, onEqualizerBand = { _, _ -> }, onEqualizerPreset = {},
             )
         }
     }

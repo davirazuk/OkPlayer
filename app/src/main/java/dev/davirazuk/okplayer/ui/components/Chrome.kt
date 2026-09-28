@@ -117,17 +117,20 @@ fun AeroWindow(
 @Composable
 private fun TitleBar(title: String) {
     Row(Modifier.fillMaxWidth().height(30.dp).padding(start = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier
-                .size(16.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0f to Color.White, 0.22f to Color(0xFFFFD27A), 0.55f to Color(0xFFF08A1C), 1f to Color(0xFFB3470A),
-                        center = Offset(6f, 5f),
-                    ),
+        // okplayer's own mark: a small disc with the same sheen as the deck.
+        Canvas(Modifier.size(16.dp)) {
+            val r = size.minDimension / 2
+            drawCircle(Color(0xFF3A4654), radius = r)
+            drawCircle(
+                Brush.sweepGradient(
+                    0f to Color(0xFFDCE4EE), 0.18f to Palette.Pink, 0.32f to Color.White, 0.5f to Color(0xFF5BCEFA),
+                    0.7f to Color(0xFFE9EEF5), 1f to Color(0xFFDCE4EE),
                 ),
-        )
+                radius = r - 1.dp.toPx() / 2,
+            )
+            drawCircle(Color(0xFF26384F), radius = r * 0.36f)
+            drawCircle(Color.White.copy(alpha = 0.8f), radius = r * 0.12f)
+        }
         Text(
             title,
             fontSize = 12.sp,
@@ -472,6 +475,7 @@ fun ControlBar(
     onShuffle: () -> Unit,
     onNoSkipping: () -> Unit,
     onSwitchView: () -> Unit,
+    nowPlaying: NowPlayingInfo? = null,
 ) {
     Column(
         Modifier
@@ -481,6 +485,7 @@ fun ControlBar(
             .drawBehind { drawLine(Color.White.copy(alpha = 0.22f), Offset(0f, 1f), Offset(size.width, 1f)) }
             .navigationBarsPadding(),
     ) {
+        if (nowPlaying != null) NowPlayingStrip(nowPlaying, onSwitchView)
         Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             var dragFraction by remember { mutableStateOf<Float?>(null) }
             val duration = durationMs.coerceAtLeast(1)
@@ -512,6 +517,26 @@ fun ControlBar(
                 modifier = Modifier.align(Alignment.Center),
             )
             BarToggle(Glyphs.SwitchView, "Switch view", false, onClick = onSwitchView, modifier = Modifier.align(Alignment.CenterEnd))
+        }
+    }
+}
+
+/** What the control bar shows about the current song while you browse the library. */
+data class NowPlayingInfo(val title: String, val artist: String, val artUri: Uri?)
+
+@Composable
+private fun NowPlayingStrip(info: NowPlayingInfo, onOpen: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Open Now Playing", onClick = onOpen)
+            .padding(start = 10.dp, end = 12.dp, top = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(info.artUri, Modifier.size(30.dp).border(1.dp, Color.Black))
+        Column(Modifier.padding(start = 9.dp).weight(1f)) {
+            Text(info.title, fontSize = 12.5.sp, lineHeight = 15.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(info.artist, fontSize = 11.sp, lineHeight = 13.sp, color = Palette.BarDim, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

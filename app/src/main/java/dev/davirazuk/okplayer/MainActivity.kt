@@ -42,6 +42,7 @@ import dev.davirazuk.okplayer.ui.components.AeroWindow
 import dev.davirazuk.okplayer.ui.components.ControlBar
 import dev.davirazuk.okplayer.ui.components.Crumb
 import dev.davirazuk.okplayer.ui.components.MenuItem
+import dev.davirazuk.okplayer.ui.components.NowPlayingInfo
 import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
@@ -88,6 +89,7 @@ private fun App(vm: PlayerViewModel) {
     val notice by vm.notice.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val libraryView by vm.libraryView.collectAsStateWithLifecycle()
+    val equalizer by vm.equalizer.collectAsStateWithLifecycle()
 
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (result[audioPermission] == true) vm.onPermissionGranted()
@@ -142,6 +144,8 @@ private fun App(vm: PlayerViewModel) {
                 onShuffle = vm::toggleShuffle,
                 onNoSkipping = { vm.setNoSkipping(!noSkipping) },
                 onSwitchView = vm::switchView,
+                nowPlaying = if (screen == Screen.NowPlaying || nowPlaying.isEmpty) null
+                else NowPlayingInfo(nowPlaying.title, nowPlaying.artist, nowPlaying.artUri),
             )
         },
     ) {
@@ -197,9 +201,14 @@ private fun App(vm: PlayerViewModel) {
                     lyrics = lyrics,
                     queue = queue,
                     onlineLyrics = onlineLyrics,
+                    equalizer = equalizer,
+                    equalizerPresets = vm.equalizerPresets,
                     onRate = { stars -> nowPlaying.mediaId?.let { vm.rate(it, stars) } },
                     onShowDeck = vm::showDeck,
                     onPlayAt = vm::playAt,
+                    onEqualizer = vm::setEqualizer,
+                    onEqualizerBand = vm::setEqualizerBand,
+                    onEqualizerPreset = vm::applyEqualizerPreset,
                 )
 
                 Screen.Options -> OptionsScreen(
