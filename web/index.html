@@ -45,6 +45,11 @@ svg{display:block}
 .caption i{width:26px;height:18px;border:1px solid rgba(30,50,70,.6);border-top:0;background:linear-gradient(#eef4fa,#c3d6e8 48%,#a9c1d8 52%,#d4e3f1)}
 .caption i:first-child{border-radius:0 0 0 4px}
 .caption i.x{width:44px;border-radius:0 0 4px 0;background:linear-gradient(#e9a597,#d4583f 48%,#c23b22 52%,#e48a6b)}
+.caption i{position:relative}
+.caption i::after{content:"";position:absolute;inset:0;background:center no-repeat}
+.caption i[data-act=minimize]::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Crect x='2.5' y='5.5' width='7' height='3' fill='%23fff' stroke='%23303b48'/%3E%3C/svg%3E")}
+.caption i[data-act=maximize]::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M1.5 .5h9v9h-9zM3 3h6v5H3z' fill='%23303b48' fill-rule='evenodd'/%3E%3Cpath d='M2.5 1.5h7v7h-7zM4 4h4v3H4z' fill='%23fff' fill-rule='evenodd'/%3E%3C/svg%3E")}
+.caption i[data-act=close]::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M2.5 1.5l7 7m0-7l-7 7' stroke='%23303b48' stroke-width='3.6' stroke-linecap='square'/%3E%3Cpath d='M2.5 1.5l7 7m0-7l-7 7' stroke='%23fff' stroke-width='1.8' stroke-linecap='square'/%3E%3C/svg%3E")}
 /* In the desktop app the page is the whole window: the title bar drags it and the caption buttons work. */
 body.desktop .win{max-width:none;height:100%;margin:0;border-radius:0;padding-top:0}
 body.desktop .title{-webkit-app-region:drag}
@@ -127,6 +132,18 @@ body.desktop .caption i.x:hover{background:linear-gradient(#f3b8a8,#e26448 48%,#
 .lyrics p.on{color:var(--lcdOn);font-size:19px;text-shadow:0 0 12px rgba(143,240,255,.55)}
 .lyrics .msg{color:#7f8b98;font-size:13px}
 .plist{align-self:stretch;height:100%;max-height:52vh;overflow-y:auto}
+/* WMP's graphic equalizer: a black glass panel of vertical sliders. */
+.eq{align-self:stretch;margin:0 4px;padding:14px;border-radius:6px;border:1px solid #3a4048;background:linear-gradient(#23272c,#101215 60%,#0b0c0e);color:#dfe7ee}
+.eq-head{display:flex;align-items:center;gap:10px}
+.eq-head b{flex:1;font-weight:400;font-size:14px}
+.eq-toggle{font-size:12px;color:#dfe6ec;padding:4px 12px;border:1px solid #000;border-radius:3px;cursor:pointer;background:linear-gradient(#4a4f56,#2b2f34 50%,#1a1d20)}
+.eq-toggle[aria-pressed="true"]{color:#fff;background:linear-gradient(#4a9bdb,#1f5e97 50%,#184c7c)}
+.eq-preset{margin-top:8px;background:#16191d;color:#7fd0ff;border:1px solid #3a4048;border-radius:3px;font-size:12.5px;padding:3px 6px}
+.eq-bands{display:flex;justify-content:space-around;margin-top:10px}
+.eq-bands.off{opacity:.45}
+.eq-band{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:10.5px;color:#aeb6bf}
+.eq-band input{writing-mode:vertical-lr;direction:rtl;width:26px;height:140px;accent-color:#3aa7ea}
+.eq-note{margin-top:8px;font-size:11px;color:#7f8b98}
 .plist button{display:grid;grid-template-columns:28px 1fr;gap:6px;align-items:center;width:100%;height:42px;padding:0 10px;border:1px solid transparent;border-radius:3px;background:none;text-align:left;cursor:pointer;color:#dce3ea}
 .plist button:hover{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
 .plist button.cur{color:#fff;border-color:#5aaee8;background:linear-gradient(#2c6ea6,#184c7c)}
@@ -216,11 +233,12 @@ button:focus-visible{outline:1px dotted currentColor;outline-offset:2px}
   <main class="pane dark" id="pane">
     <section class="np" id="vNow">
       <canvas id="viz"></canvas>
-      <div class="tabs" role="tablist"><button data-v="disc" aria-pressed="true">Disc</button><button data-v="lyrics" aria-pressed="false">Lyrics</button><button data-v="list" aria-pressed="false">Play list</button></div>
+      <div class="tabs" role="tablist"><button data-v="disc" aria-pressed="true">Disc</button><button data-v="lyrics" aria-pressed="false">Lyrics</button><button data-v="list" aria-pressed="false">Play list</button><button data-v="eq" aria-pressed="false">Equalizer</button></div>
       <div class="stage">
         <div class="well" id="well"><div class="disc" id="disc"><div class="spin"><div class="label" id="label"></div></div><div class="sheen"></div><div class="hub"></div></div></div>
         <div class="lyrics" id="lyrView" hidden></div>
         <div class="plist" id="listView" hidden></div>
+        <div class="eq" id="eqView" hidden></div>
       </div>
       <div class="lcd" id="lcd">
         <div class="lcd-top"><span><small>TRACK</small><span id="lcdTrack">--</span></span><span id="tNowLcd">-:--</span></div>
@@ -423,7 +441,25 @@ function renderAlbum(a){
 
 /* ---------- playback ---------- */
 let actx,analyser,freq;
-function setupAudio(){if(actx)return;try{actx=new (window.AudioContext||window.webkitAudioContext)();const src=actx.createMediaElementSource(audio);analyser=actx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=.8;freq=new Uint8Array(analyser.frequencyBinCount);src.connect(analyser);analyser.connect(actx.destination)}catch(e){analyser=null}}
+/* Five peaking filters between the source and the analyser, like the phone's equalizer. */
+const EQ_HZ=[60,230,910,3600,14000];
+const EQ_PRESETS={Flat:[0,0,0,0,0],Rock:[.5,.25,-.2,.25,.55],Pop:[-.15,.25,.45,.25,-.1],Jazz:[.3,.15,-.1,.2,.35],Classical:[.35,.15,0,.15,.4],"Bass boost":[.7,.4,0,0,0],"Treble boost":[0,0,0,.4,.7],Vocal:[-.25,0,.45,.3,-.1],"Late night":[.35,.1,0,-.15,-.35]};
+let eqNodes=[],eqState=store.get("eq",{on:false,preset:"Flat",gains:[0,0,0,0,0]});
+function applyEq(){eqNodes.forEach((f,i)=>f.gain.value=eqState.on?eqState.gains[i]:0);store.set("eq",eqState)}
+function setupAudio(){if(actx)return;try{actx=new (window.AudioContext||window.webkitAudioContext)();const src=actx.createMediaElementSource(audio);analyser=actx.createAnalyser();analyser.fftSize=256;analyser.smoothingTimeConstant=.8;freq=new Uint8Array(analyser.frequencyBinCount);
+  let node=src;eqNodes=EQ_HZ.map(hz=>{const f=actx.createBiquadFilter();f.type="peaking";f.frequency.value=hz;f.Q.value=1.1;node.connect(f);node=f;return f});
+  node.connect(analyser);analyser.connect(actx.destination);applyEq()}catch(e){analyser=null}}
+function renderEq(){
+  const v=$("eqView"),on=eqState.on;
+  v.innerHTML=`<div class="eq-head"><b>Graphic equalizer</b><button class="eq-toggle" aria-pressed="${on}">${on?"Turn off":"Turn on"}</button></div>
+    <select class="eq-preset" aria-label="Preset">${[...Object.keys(EQ_PRESETS),"Custom"].map(p=>`<option${p===eqState.preset?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="eq-bands${on?"":" off"}">${EQ_HZ.map((hz,i)=>`<label class="eq-band"><span>${eqState.gains[i]>0?"+":""}${Math.round(eqState.gains[i])}</span>
+      <input type="range" min="-12" max="12" step="1" value="${eqState.gains[i]}" data-i="${i}" aria-label="${hz} Hz"><span>${hz>=1000?(hz/1000)+"k":hz}</span></label>`).join("")}</div>
+    <div class="eq-note">The equalizer changes the sound, so it isn't bit-perfect while it's on.</div>`;
+  v.querySelector(".eq-toggle").onclick=()=>{eqState.on=!eqState.on;applyEq();renderEq()};
+  v.querySelector(".eq-preset").onchange=e=>{const p=EQ_PRESETS[e.target.value];if(p){eqState.gains=p.map(x=>Math.round(x*12));eqState.preset=e.target.value;applyEq();renderEq()}};
+  v.querySelectorAll("input").forEach(inp=>inp.oninput=e=>{eqState.gains[+e.target.dataset.i]=+e.target.value;eqState.preset="Custom";applyEq();e.target.previousElementSibling.textContent=(e.target.value>0?"+":"")+e.target.value;v.querySelector(".eq-preset").value="Custom"});
+}
 async function blobFor(t){if(mem.has(t.id))return mem.get(t.id);if(t.demo)return demoWav();const f=await getFile("music",t.id);if(f)mem.set(t.id,f);return f}
 let curUrl=null,unlocked=false;
 function playList(tracks,start){
@@ -482,9 +518,9 @@ let deck="disc",lyr={id:null,status:"none",lines:[],synced:false},lyrIdx=-2;
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{deck=deck===b.dataset.v?"disc":b.dataset.v;renderDeck()});
 function renderDeck(){
   document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===deck));
-  $("well").hidden=deck!=="disc";$("lyrView").hidden=deck!=="lyrics";$("listView").hidden=deck!=="list";
+  $("well").hidden=deck!=="disc";$("lyrView").hidden=deck!=="lyrics";$("listView").hidden=deck!=="list";$("eqView").hidden=deck!=="eq";
   $("curLyric").hidden=deck!=="disc";
-  if(deck==="lyrics")renderLyrics();if(deck==="list")renderList();
+  if(deck==="lyrics")renderLyrics();if(deck==="list")renderList();if(deck==="eq")renderEq();
 }
 function renderList(){
   const v=$("listView");v.innerHTML=queue.length?"":'<p class="msg" style="text-align:center;color:#7f8b98">The play list is empty.</p>';

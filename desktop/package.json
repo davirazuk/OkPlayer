@@ -19,18 +19,32 @@
     "appId": "dev.davirazuk.okplayer",
     "productName": "okplayer",
     "artifactName": "okplayer-${version}-${os}-${arch}.${ext}",
-    "files": ["main.js", "preload.js", "web/**/*"],
+    "files": [
+      "main.js",
+      "preload.js",
+      "web/**/*"
+    ],
     "icon": "build/icon.png",
     "linux": {
-      "target": ["AppImage"],
-      "category": "Audio"
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio",
+      "icon": "build/icon.png"
     },
     "win": {
-      "target": ["portable"]
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.png"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "category": "public.app-category.music"
-    }
-  }
+    },
+    "publish": null
+  },
+  "repository": "https://github.com/davirazuk/okplayer"
 }

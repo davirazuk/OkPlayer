@@ -8,6 +8,8 @@
   where you left off.
 - **Desktop version** for Windows (portable `.exe`) and Linux (AppImage): the player
   in a frameless window whose Aero title bar is the real window frame.
+- Web and desktop: the **graphic equalizer** with presets, and proper minimize /
+  maximize / close glyphs on the title bar.
 - Android: okplayer's disc in the status bar and notification, and a preview of the
   widget in the widget picker.
 
