@@ -204,6 +204,8 @@ fun SevenControls(
     onShuffle: () -> Unit,
     onNoSkipping: () -> Unit,
     onOpenNowPlaying: () -> Unit,
+    repeatMode: Int = 0,
+    onRepeat: () -> Unit = {},
 ) {
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val duration = durationMs.coerceAtLeast(1)
@@ -282,6 +284,7 @@ fun SevenControls(
         }
         Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill("shuffle", shuffle, icon = Glyphs.Shuffle, enabled = !noSkipping, onClick = onShuffle)
+            Pill(if (repeatMode == 1) "repeat one" else "repeat", repeatMode != 0, icon = if (repeatMode == 1) Glyphs.RepeatOne else Glyphs.Repeat, onClick = onRepeat)
             Pill("no skipping", noSkipping, icon = Glyphs.Lock, onClick = onNoSkipping)
         }
     }

@@ -456,7 +456,7 @@ button:focus-visible{outline:1px dotted currentColor;outline-offset:2px}
         <div class="lcd-top"><span><small>TRACK</small><span id="lcdTrack">--</span></span><span id="tNowLcd">-:--</span></div>
         <div class="lcd-title" id="lcdTitle"><span id="npTitle">NO DISC</span></div>
         <div class="lcd-sub" id="npArtist">ADD MUSIC OR PRESS PLAY FOR A DEMO</div>
-        <div class="lcd-ind"><span id="iShuf">SHUF</span><span id="iLock">NO SKIP</span><span id="iSleep">SLEEP</span><span id="iFmt" class="fmt">--</span></div>
+        <div class="lcd-ind"><span id="iShuf">SHUF</span><span id="iRep">REPEAT</span><span id="iLock">NO SKIP</span><span id="iSleep">SLEEP</span><span id="iFmt" class="fmt">--</span></div>
       </div>
       <div class="curlyric" id="curLyric"></div>
       <div class="rate" id="react" aria-label="Rating"></div>
@@ -469,6 +469,7 @@ button:focus-visible{outline:1px dotted currentColor;outline-offset:2px}
     <div class="ctl">
       <div class="side">
         <button class="tb" id="mShuffle" aria-pressed="false" aria-label="Shuffle" title="Shuffle"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg><span class="lbl">shuffle</span></button>
+        <button class="tb" id="mRepeat" aria-pressed="false" aria-label="Repeat" title="Repeat (Ctrl+T)"><svg viewBox="0 0 24 24" width="18" height="18" id="repIco"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg><span class="lbl" id="repLbl">repeat</span></button>
         <button class="tb" id="mLock" aria-pressed="false" aria-label="No skipping" title="No skipping"><svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg><span class="lbl">no skipping</span></button>
       </div>
       <button class="mini" id="mini" aria-label="Go to Now Playing"><div class="cover" id="miniArt"></div><span><b id="miniTitle">Nothing playing</b><small id="miniArtist">okplayer</small></span></button>
@@ -520,6 +521,7 @@ const store={get(k,d){try{const v=localStorage.getItem("okp-"+k);return v?JSON.p
 let lib=store.get("lib",[]);          // [{id,title,artist,album,albumArtist,no,disc,dur,file,art}]
 let ratings=store.get("ratings",{});
 let prefs=store.get("prefs",{order:true,lock:false});
+if(!["off","all","one"].includes(prefs.repeat))prefs.repeat="off";
 const mem=new Map();                   // id -> File/Blob for this session
 const artUrl=new Map();                // art key -> object url
 let queue=[],qi=-1,view="now",openAlbum=null,openArtist=null,query="";
@@ -788,7 +790,9 @@ async function load(i,autoplay){
   const u=await art(t.art);if(queue[qi]!==t)return;$("label").style.backgroundImage=u?`url("${u}")`:"";paintArt($("miniArt"),u,t.album);curArt=u;
   if("mediaSession" in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,album:t.album,artwork:u?[{src:u,sizes:"512x512"}]:[]})}
 }
-function next(auto){if(prefs.lock&&!auto&&!unlocked){toast("No skipping is on. Finish the song first.");return}if(qi+1<queue.length)load(qi+1,true);else if(auto){audio.pause();toast("End of the album.")}}
+function next(auto){if(prefs.lock&&!auto&&!unlocked){toast("No skipping is on. Finish the song first.");return}
+  if(auto&&prefs.repeat==="one"){counted=false;unlocked=false;audio.currentTime=0;audio.play().catch(()=>{});return}
+  if(qi+1<queue.length)load(qi+1,true);else if(prefs.repeat==="all"&&queue.length)load(0,true);else if(auto){audio.pause();toast("End of the album.")}}
 function prev(){if(audio.currentTime>3){audio.currentTime=0;return}if(prefs.lock){toast("No skipping is on.");return}if(qi>0)load(qi-1,true)}
 $("play").onclick=()=>{if(!queue.length){playDemo();return}setupAudio();actx?.resume();audio.paused?audio.play():audio.pause()};
 $("next").onclick=()=>next(false);$("prev").onclick=prev;
@@ -814,10 +818,15 @@ if("mediaSession" in navigator){const ms=navigator.mediaSession;
 
 /* ---------- modes + reactions ---------- */
 function setMode(order){prefs.order=order;store.set("prefs",prefs);renderModes()}
-function renderModes(){$("mShuffle").setAttribute("aria-pressed",!prefs.order);$("mLock").setAttribute("aria-pressed",prefs.lock);
+const REPEAT_ONE_ICON='<path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z"/>',REPEAT_ICON='<path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>';
+function renderModes(){$("mRepeat").setAttribute("aria-pressed",prefs.repeat!=="off");$("repIco").innerHTML=prefs.repeat==="one"?REPEAT_ONE_ICON:REPEAT_ICON;
+  $("repLbl").textContent=prefs.repeat==="one"?"repeat one":"repeat";$("iRep").classList.toggle("lit",prefs.repeat!=="off");$("iRep").textContent=prefs.repeat==="one"?"REPEAT 1":"REPEAT";
+  $("mShuffle").setAttribute("aria-pressed",!prefs.order);$("mLock").setAttribute("aria-pressed",prefs.lock);
   $("iShuf").classList.toggle("lit",!prefs.order);$("iLock").classList.toggle("lit",prefs.lock);
   $("next").disabled=prefs.lock;$("note").textContent=prefs.lock?"No skipping is on. The next song unlocks when this one ends.":""}
 $("mShuffle").onclick=()=>{if(prefs.lock){toast("Turn off No skipping to shuffle.");return}setMode(!prefs.order);toast(prefs.order?"Shuffle off.":"Shuffle on. It applies to the next album you play.")};
+$("mRepeat").onclick=()=>{prefs.repeat={off:"all",all:"one",one:"off"}[prefs.repeat];store.set("prefs",prefs);renderModes();
+  toast(prefs.repeat==="all"?"Repeat: the whole list.":prefs.repeat==="one"?"Repeat: this song.":"Repeat off.")};
 $("mLock").onclick=()=>{prefs.lock=!prefs.lock;if(prefs.lock)prefs.order=true;store.set("prefs",prefs);renderModes()};
 function renderReact(){const r=$("react"),t=queue[qi];r.innerHTML="";r.hidden=!t||t.demo;if(!t)return;const n=ratings[t.id]||0;
   for(let i=1;i<=5;i++){const b=document.createElement("button");b.innerHTML=ICON_STAR;b.className=i<=n?"on":"";b.setAttribute("aria-label",`Rate ${i} star${i>1?"s":""}`);
@@ -1006,7 +1015,7 @@ addEventListener("keydown",e=>{
     return}
   const c=e.ctrlKey||e.metaKey,k=e.key.toLowerCase(),typing=e.target.matches?.("input[type=search],input[type=text],select,textarea");
   if(typing&&!c)return;
-  const act={p:()=>$("play").click(),f:()=>next(false),b:prev,h:()=>$("mShuffle").click(),1:()=>show("lib"),2:()=>setSkin(skin==="seven"?"wmp":"seven"),3:()=>show("now"),
+  const act={p:()=>$("play").click(),f:()=>next(false),b:prev,h:()=>$("mShuffle").click(),t:()=>$("mRepeat").click(),1:()=>show("lib"),2:()=>setSkin(skin==="seven"?"wmp":"seven"),3:()=>show("now"),
     e:()=>{if(view!=="lib"||openAlbum||openArtist){openAlbum=openArtist=null;show("lib")}$("q")?.focus()}}[k];
   if(c&&act&&!e.shiftKey&&!e.altKey){e.preventDefault();act();return}
   if(c)return;
@@ -1097,7 +1106,7 @@ function smRight(){
   sl.onclick=e=>{const r=e.currentTarget.getBoundingClientRect();$("sleepBtn").onclick({currentTarget:{getBoundingClientRect:()=>({right:r.right+190-r.width,bottom:r.top-4})}})};R.append(sl);
   R.append(document.createElement("hr"));
   link("WMP 12 skin",()=>setSkin("wmp"));
-  link("Keyboard shortcuts",()=>toast("Ctrl+P play/pause · Ctrl+F/B next/previous · Ctrl+H shuffle · Ctrl+1/3 library/now playing · Ctrl+2 skin · Ctrl+E search · F7/F8/F9 volume",9000));
+  link("Keyboard shortcuts",()=>toast("Ctrl+P play/pause · Ctrl+F/B next/previous · Ctrl+H shuffle · Ctrl+T repeat · Ctrl+1/3 library/now playing · Ctrl+2 skin · Ctrl+E search · F7/F8/F9 volume",9000));
   link("About okplayer",()=>window.open("https://github.com/davirazuk/OkPlayer","_blank"));
   const sh=document.createElement("div");sh.className="sm-shut";
   sh.innerHTML=`<button id="smStop">${window.okDesktop?"Shut down":"Stop"}</button><button id="smMore" aria-label="More">▸</button>`;R.append(sh);

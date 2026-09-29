@@ -213,6 +213,8 @@ private fun App(vm: PlayerViewModel) {
                 onShuffle = vm::toggleShuffle,
                 onNoSkipping = { vm.setNoSkipping(!noSkipping) },
                 onOpenNowPlaying = { vm.open(Screen.NowPlaying) },
+                repeatMode = nowPlaying.repeatMode,
+                onRepeat = vm::cycleRepeat,
             ) else ControlBar(
                 positionMs = nowPlaying.positionMs,
                 durationMs = nowPlaying.durationMs,
@@ -230,6 +232,8 @@ private fun App(vm: PlayerViewModel) {
                 onSwitchView = vm::switchView,
                 nowPlaying = if (screen == Screen.NowPlaying || nowPlaying.isEmpty) null
                 else NowPlayingInfo(nowPlaying.title, nowPlaying.artist, nowPlaying.artUri),
+                repeatMode = nowPlaying.repeatMode,
+                onRepeat = vm::cycleRepeat,
             )
         },
     ) {

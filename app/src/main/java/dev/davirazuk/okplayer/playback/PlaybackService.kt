@@ -215,8 +215,10 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            // A song that ran to its end counts as played.
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) lastMediaId?.let(PlayStats::record)
+            // A song that ran to its end counts as played, including one repeating itself.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                lastMediaId?.let(PlayStats::record)
+            }
             lastMediaId = mediaItem?.mediaId
             retriedMediaId = null
             saveQueue()

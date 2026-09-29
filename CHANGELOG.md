@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Repeat**: off, the whole list, or one song, on every platform (Ctrl+T on PC). Songs
+  replayed by repeat count as plays.
 - **Seven skin**, now the default on PC and web: okplayer's original look is back and
   grown up. A dark deck with the big disc, glass orbs and pill toggles, a spectrum
   rising from the transport, and a Windows 7 **taskbar** with a working **Start menu**

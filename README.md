@@ -127,7 +127,7 @@ Player's keyboard shortcuts:
 | --- | --- |
 | Ctrl+P or Space | Play / pause |
 | Ctrl+F / Ctrl+B | Next / previous |
-| Ctrl+H | Shuffle |
+| Ctrl+H / Ctrl+T | Shuffle / repeat |
 | Ctrl+1 / Ctrl+3 | Library / Now Playing |
 | Ctrl+2 | Switch skin (Seven / WMP 12) |
 | Ctrl+E | Search |

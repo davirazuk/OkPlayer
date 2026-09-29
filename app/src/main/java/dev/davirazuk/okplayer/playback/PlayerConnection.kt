@@ -27,6 +27,8 @@ data class NowPlaying(
     val positionMs: Long = 0,
     val durationMs: Long = 0,
     val shuffle: Boolean = false,
+    /** Player.REPEAT_MODE_OFF, _ALL or _ONE. */
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
     val hasNext: Boolean = false,
     val index: Int = 0,
     val count: Int = 0,
@@ -137,6 +139,10 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         controller?.shuffleModeEnabled = enabled
     }
 
+    fun setRepeatMode(mode: Int) {
+        controller?.repeatMode = mode
+    }
+
     private fun updateTicker() {
         ticker?.cancel()
         if (controller?.isPlaying != true) return
@@ -170,6 +176,7 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
             positionMs = c.currentPosition.coerceAtLeast(0),
             durationMs = c.duration.takeIf { it > 0 } ?: 0,
             shuffle = c.shuffleModeEnabled,
+            repeatMode = c.repeatMode,
             hasNext = c.hasNextMediaItem(),
             index = c.currentMediaItemIndex,
             count = c.mediaItemCount,

@@ -12,6 +12,7 @@ import dev.davirazuk.okplayer.data.PlaybackEvents
 import dev.davirazuk.okplayer.data.SleepTimer
 import dev.davirazuk.okplayer.data.Preferences
 import dev.davirazuk.okplayer.data.Skin
+import androidx.media3.common.Player
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.LibraryRepository
 import dev.davirazuk.okplayer.library.Track
@@ -255,6 +256,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleShuffle() {
         if (noSkipping.value) return
         connection.setShuffle(!nowPlaying.value.shuffle)
+    }
+
+    /** Off, then the whole list, then the current song, like WMP's repeat button. */
+    fun cycleRepeat() {
+        val next = when (nowPlaying.value.repeatMode) {
+            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+        connection.setRepeatMode(next)
+        PlaybackEvents.post(
+            when (next) {
+                Player.REPEAT_MODE_ALL -> "Repeat: the whole list."
+                Player.REPEAT_MODE_ONE -> "Repeat: this song."
+                else -> "Repeat off."
+            },
+            isError = false,
+        )
     }
 
     fun setNoSkipping(enabled: Boolean) {

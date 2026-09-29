@@ -570,6 +570,8 @@ fun ControlBar(
     onNoSkipping: () -> Unit,
     onSwitchView: () -> Unit,
     nowPlaying: NowPlayingInfo? = null,
+    repeatMode: Int = 0,
+    onRepeat: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -597,8 +599,9 @@ fun ControlBar(
             Text(formatTime(durationMs), fontSize = 11.sp, color = Palette.BarDim)
         }
         Box(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 10.dp)) {
-            Row(Modifier.align(Alignment.CenterStart), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.align(Alignment.CenterStart), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 BarToggle(Glyphs.Shuffle, "Shuffle", shuffle, enabled = !noSkipping, onClick = onShuffle)
+                BarToggle(if (repeatMode == 1) Glyphs.RepeatOne else Glyphs.Repeat, "Repeat", repeatMode != 0, onClick = onRepeat)
                 BarToggle(Glyphs.Lock, "No skipping", noSkipping, onClick = onNoSkipping)
             }
             Transport(
@@ -700,7 +703,7 @@ private fun BarToggle(
     val shape = RoundedCornerShape(3.dp)
     Box(
         modifier
-            .size(38.dp, 32.dp)
+            .size(30.dp, 32.dp)
             .alpha(if (enabled) 1f else 0.35f)
             .clip(shape)
             .then(
