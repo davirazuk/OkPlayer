@@ -422,7 +422,7 @@ fun AlbumScreen(
     currentId: String?,
     ratings: Map<String, Int>,
     noSkipping: Boolean,
-    onPlay: (startIndex: Int, shuffle: Boolean) -> Unit,
+    onPlay: (startIndex: Int, shuffle: Boolean?) -> Unit,
     actions: QueueActions = QueueActions(),
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -456,8 +456,8 @@ fun AlbumScreen(
                     rating = ratings[id] ?: 0,
                     duration = formatTime(track.durationMs),
                     current = id == currentId,
-                    menu = songMenu(track, actions) { onPlay(index, false) },
-                    onClick = { onPlay(index, false) },
+                    menu = songMenu(track, actions) { onPlay(index, null) },
+                    onClick = { onPlay(index, null) },
                 )
             }
         }

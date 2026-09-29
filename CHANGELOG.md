@@ -12,6 +12,12 @@
   spectrum, a taskbar with Start, Library and Now Playing buttons, tray icons for the
   USB DAC and the sleep timer, a clock, and a Start menu with search. Pick the look
   under **Options → Look**.
+- Fixed: shuffle could leave part of an album unplayed. ExoPlayer started wherever the
+  first song landed in its random order, so songs before it never came up; now the
+  first song leads and everything else follows in random order.
+- Fixed: shuffle switched itself off whenever you picked a song. It's a mode now, like
+  WMP's; only the Play and Shuffle commands set it, and Shuffle starts on a random song.
+- Fixed: with No skipping on, play did nothing after the album ended.
 - Fixed: the blue desktop behind the window was white on wide screens.
 - Fixed: the equalizer's sliders had no visible track.
 - Web and desktop: **Artists, Songs, Recently added, Most played and Recently played**

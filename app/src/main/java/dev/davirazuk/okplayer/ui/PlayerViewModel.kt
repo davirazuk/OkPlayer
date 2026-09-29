@@ -166,19 +166,24 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun album(id: Long): Album? = (library.value as? LibraryState.Ready)?.albums?.firstOrNull { it.id == id }
 
-    fun playAlbum(album: Album, startIndex: Int = 0, shuffle: Boolean = false) {
-        connection.play(album.tracks.map { it.toMediaItem() }, startIndex, shuffle && !noSkipping.value)
+    /**
+     * Plays an album from a song. [shuffle] true or false is the Shuffle or Play command;
+     * null (tapping a song) keeps whatever the shuffle toggle is set to, like WMP.
+     */
+    fun playAlbum(album: Album, startIndex: Int = 0, shuffle: Boolean? = null) = playList(album.tracks, startIndex, shuffle)
+
+    private fun playList(tracks: List<Track>, startIndex: Int, shuffle: Boolean?) {
+        if (tracks.isEmpty()) return
+        val on = !noSkipping.value && (shuffle ?: nowPlaying.value.shuffle)
+        // The Shuffle command starts anywhere, not always on the first track.
+        val start = if (shuffle == true) tracks.indices.random() else startIndex.coerceIn(0, tracks.lastIndex)
+        connection.play(tracks.map { it.toMediaItem() }, start, on)
         _deckView.value = DeckView.Disc
         open(Screen.NowPlaying)
     }
 
     /** Plays a list of songs from anywhere in the library, such as search results. */
-    fun playTracks(tracks: List<Track>, startIndex: Int) {
-        if (tracks.isEmpty()) return
-        connection.play(tracks.map { it.toMediaItem() }, startIndex.coerceIn(0, tracks.lastIndex), false)
-        _deckView.value = DeckView.Disc
-        open(Screen.NowPlaying)
-    }
+    fun playTracks(tracks: List<Track>, startIndex: Int) = playList(tracks, startIndex, null)
 
     /** Opens Now Playing on one of the deck's views. */
     fun openDeck(view: DeckView) {
@@ -221,13 +226,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     fun artistAlbums(artist: String): List<Album> =
         (library.value as? LibraryState.Ready)?.albums?.filter { it.artist == artist }.orEmpty()
 
-    fun playArtist(artist: String, shuffle: Boolean) {
-        val tracks = artistAlbums(artist).flatMap { it.tracks }
-        if (tracks.isEmpty()) return
-        connection.play(tracks.map { it.toMediaItem() }, 0, shuffle && !noSkipping.value)
-        _deckView.value = DeckView.Disc
-        open(Screen.NowPlaying)
-    }
+    fun playArtist(artist: String, shuffle: Boolean) = playList(artistAlbums(artist).flatMap { it.tracks }, 0, shuffle)
 
     fun playAt(index: Int) {
         if (noSkipping.value) {

@@ -14,7 +14,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.exoplayer.ExoPlayer
@@ -204,6 +206,14 @@ class PlaybackService : MediaSessionService() {
             }
         }
 
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            if (shuffleModeEnabled) shuffleFromCurrent()
+        }
+
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) shuffleFromCurrent()
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             // A song that ran to its end counts as played.
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) lastMediaId?.let(PlayStats::record)
@@ -262,6 +272,21 @@ class PlaybackService : MediaSessionService() {
             player.prepare()
             player.play()
         }
+    }
+
+    /**
+     * ExoPlayer's shuffle is a random order of the whole list, and playback starts wherever
+     * the chosen song landed in it, so songs placed before it never play. Put the current
+     * song first and shuffle the rest after it, so the whole album plays.
+     */
+    private fun shuffleFromCurrent() {
+        if (!player.shuffleModeEnabled) return
+        val count = player.mediaItemCount
+        val current = player.currentMediaItemIndex
+        if (count < 2 || current !in 0 until count) return
+        if (player.currentTimeline.getFirstWindowIndex(true) == current) return
+        val order = intArrayOf(current) + (0 until count).filter { it != current }.shuffled().toIntArray()
+        player.setShuffleOrder(ShuffleOrder.DefaultShuffleOrder(order, System.nanoTime()))
     }
 
     private fun updateWidget() {
@@ -447,8 +472,11 @@ private class NoSkipPlayer(player: Player) : androidx.media3.common.ForwardingPl
     }
 
     override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
-        if (locked && mediaItemIndex != currentMediaItemIndex) return
-        if (locked && positionMs > currentPosition + SEEK_TOLERANCE_MS) return
+        // Going back, or starting over once the album has ended, isn't skipping. Jumping ahead is.
+        if (locked && playbackState != Player.STATE_ENDED) {
+            if (mediaItemIndex > currentMediaItemIndex) return
+            if (mediaItemIndex == currentMediaItemIndex && positionMs > currentPosition + SEEK_TOLERANCE_MS) return
+        }
         super.seekTo(mediaItemIndex, positionMs)
     }
 
