@@ -113,7 +113,8 @@ fun LibraryScreen(
                     Modifier.padding(12.dp),
                 )
             } else if (view == LibraryView.Folders && query.isBlank()) {
-                FolderList(FolderIndex.of(state.albums), "", onOpenFolder, onPlayFolder, actions)
+                val index = remember(state.albums) { FolderIndex.of(state.albums) }
+                FolderList(index, index.startPath(), onOpenFolder, onPlayFolder, actions)
             } else {
                 LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong, actions, stats)
             }
@@ -297,6 +298,13 @@ class FolderIndex private constructor(private val songs: Map<String, List<Track>
     fun allUnder(path: String): List<Track> = songsIn(path) + subfolders(path).flatMap { allUnder(it) }
 
     fun count(path: String): Int = songsIn(path).size + subfolders(path).sumOf { count(it) }
+
+    /** Where browsing starts: past folders that only lead to one other folder, like a lone "Music". */
+    fun startPath(): String {
+        var path = ""
+        while (songsIn(path).isEmpty() && subfolders(path).size == 1) path = subfolders(path)[0]
+        return path
+    }
 
     companion object {
         fun of(albums: List<Album>) = FolderIndex(

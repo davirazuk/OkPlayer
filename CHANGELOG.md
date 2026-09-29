@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - Android: **Folders** view (from the breadcrumb or Start) for music organised in
   folders: browse the tree, play or shuffle everything under a folder, or queue it.
