@@ -150,7 +150,7 @@ fun NowPlayingScreen(
                 blinkTime = !state.isEmpty && !state.isPlaying,
             )
 
-            if (deckView == DeckView.Disc) CurrentLyric(lyrics, state.positionMs)
+            if (deckView == DeckView.Disc && !state.isEmpty) CurrentLyric(lyrics, state.positionMs)
 
             if (!state.isEmpty) RatingRow(rating, onRate)
             Text(

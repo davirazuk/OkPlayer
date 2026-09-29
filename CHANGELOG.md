@@ -8,6 +8,10 @@
   (every library view, search as you type, lyrics, play list, equalizer, sleep timer),
   a tray **volume flyout**, a clock and balloon notifications. The Windows Media
   Player 12 look is still there: switch with **Ctrl+2** or from the Start menu.
+- Android gets the **Seven skin** too, as the default: the same deck, orbs, pills and
+  spectrum, a taskbar with Start, Library and Now Playing buttons, tray icons for the
+  USB DAC and the sleep timer, a clock, and a Start menu with search. Pick the look
+  under **Options → Look**.
 - Fixed: the blue desktop behind the window was white on wide screens.
 - Fixed: the equalizer's sliders had no visible track.
 - Web and desktop: **Artists, Songs, Recently added, Most played and Recently played**

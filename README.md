@@ -1,19 +1,20 @@
 # okplayer
 
-A local music player for Android that looks and feels like Windows Media Player 12
-on Windows 7, built for playing albums the way they were sequenced and for getting
-them to a USB DAC untouched.
+A local music player for Android, Windows and Linux in the style of Windows 7:
+a dark deck with a spinning disc and glass buttons over a taskbar with a Start
+menu, or Windows Media Player 12 if you prefer. Built for playing albums the way
+they were sequenced and for getting them to a USB DAC untouched.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlaying.png" width="24%" alt="Now Playing: the CD deck and LCD">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingLyrics.png" width="24%" alt="Synced lyrics">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_library.png" width="24%" alt="Album library">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_album.png" width="24%" alt="Album with ratings">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_sevenNowPlaying.png" width="24%" alt="Now Playing in the Seven skin">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_sevenStartMenu.png" width="24%" alt="The Start menu">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_sevenLyrics.png" width="24%" alt="Synced lyrics">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_sevenLibrary.png" width="24%" alt="Album library">
 </p>
 <p align="center">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlaying.png" width="24%" alt="Now Playing in the WMP 12 skin">
   <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingEqualizer.png" width="24%" alt="Graphic equalizer">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_artists.png" width="24%" alt="Artists">
-  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_nowPlayingPlayList.png" width="24%" alt="Play list">
+  <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_album.png" width="24%" alt="Album with ratings">
   <img src="https://raw.githubusercontent.com/davirazuk/OkPlayer/screenshots/dev.davirazuk.okplayer_ScreenshotTest_options.png" width="24%" alt="Options">
 </p>
 

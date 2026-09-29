@@ -113,17 +113,18 @@ fun GlassOrb(
     Box(
         Modifier
             .size(size)
-            .alpha(if (enabled) 1f else 0.4f)
+            // The glow and shadow sit outside the alpha layer, which would clip them to a square.
             .drawBehind {
                 val r = this.size.minDimension / 2
-                if (primary) {
+                if (primary && enabled) {
                     drawCircle(
                         Brush.radialGradient(listOf(Palette.Cyan.copy(alpha = if (pressed) 0.7f else 0.45f), Color.Transparent), radius = r * 1.45f),
                         radius = r * 1.45f,
                     )
                 }
-                drawCircle(Color.Black.copy(alpha = 0.45f), radius = r, center = center.copy(y = center.y + 2.dp.toPx()))
+                drawCircle(Color.Black.copy(alpha = if (enabled) 0.45f else 0.2f), radius = r, center = center.copy(y = center.y + 2.dp.toPx()))
             }
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(CircleShape)
             .drawWithCache {
                 val r = this.size.minDimension / 2
