@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Seven skin**, now the default on PC and web: okplayer's original look is back and
+  grown up. A dark deck with the big disc, glass orbs and pill toggles, a spectrum
+  rising from the transport, and a Windows 7 **taskbar** with a working **Start menu**
+  (every library view, search as you type, lyrics, play list, equalizer, sleep timer),
+  a tray **volume flyout**, a clock and balloon notifications. The Windows Media
+  Player 12 look is still there: switch with **Ctrl+2** or from the Start menu.
+- Fixed: the blue desktop behind the window was white on wide screens.
+- Fixed: the equalizer's sliders had no visible track.
 - Web and desktop: **Artists, Songs, Recently added, Most played and Recently played**
   views from the breadcrumb, **search**, Windows 7 **right-click menus** (Play next,
   Add to Now Playing, Go to album / artist, Remove from play list), a **sleep timer**

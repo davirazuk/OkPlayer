@@ -128,6 +128,7 @@ Player's keyboard shortcuts:
 | Ctrl+F / Ctrl+B | Next / previous |
 | Ctrl+H | Shuffle |
 | Ctrl+1 / Ctrl+3 | Library / Now Playing |
+| Ctrl+2 | Switch skin (Seven / WMP 12) |
 | Ctrl+E | Search |
 | F7 / F8 / F9 | Mute / volume down / volume up |
 
