@@ -23,7 +23,7 @@
       "main.js",
       "preload.js",
       "web/**/*",
-      "icons/*.png"
+      "thumbar/*.png"
     ],
     "icon": "build/icon.png",
     "linux": {

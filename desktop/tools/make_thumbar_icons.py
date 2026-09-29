@@ -46,7 +46,7 @@ def png(path, shape):
     data += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
     open(path, "wb").write(data)
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "icons")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "thumbar")
 os.makedirs(out, exist_ok=True)
 png(os.path.join(out, "play.png"), [("tri", (4.5, 2.5), (4.5, 13.5), (13, 8))])
 png(os.path.join(out, "pause.png"), [("rect", 3.5, 2.5, 7, 13.5), ("rect", 9, 2.5, 12.5, 13.5)])

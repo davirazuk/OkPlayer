@@ -97,7 +97,7 @@ function createWindow() {
 
 /* ---------- Windows taskbar: previous / play / next under the thumbnail, like WMP ---------- */
 
-const icon = (name) => nativeImage.createFromPath(path.join(__dirname, "icons", `${name}.png`));
+const icon = (name) => nativeImage.createFromPath(path.join(__dirname, "thumbar", `${name}.png`));
 
 function updateThumbar(playing) {
   if (!win || process.platform !== "win32") return;
