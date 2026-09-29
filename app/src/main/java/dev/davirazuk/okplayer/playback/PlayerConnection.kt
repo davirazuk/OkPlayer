@@ -112,6 +112,13 @@ class PlayerConnection(private val context: Context, private val scope: Coroutin
         controller?.seekToNext()
     }
 
+    /** Pauses and goes back to the start of the song, like a CD player's stop button. */
+    fun stop() {
+        val c = controller ?: return
+        c.pause()
+        c.seekTo(0)
+    }
+
     fun previous() {
         controller?.seekToPrevious()
     }

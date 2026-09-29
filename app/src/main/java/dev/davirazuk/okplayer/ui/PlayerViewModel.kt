@@ -11,6 +11,7 @@ import dev.davirazuk.okplayer.data.PlayStats
 import dev.davirazuk.okplayer.data.PlaybackEvents
 import dev.davirazuk.okplayer.data.SleepTimer
 import dev.davirazuk.okplayer.data.Preferences
+import dev.davirazuk.okplayer.data.Skin
 import dev.davirazuk.okplayer.library.Album
 import dev.davirazuk.okplayer.library.LibraryRepository
 import dev.davirazuk.okplayer.library.Track
@@ -97,6 +98,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val hiResOutput = Preferences.hiResOutput
     val builtInDecoder = Preferences.builtInDecoder
     val onlineLyrics = Preferences.onlineLyrics
+    val skin = Preferences.skin
 
     init {
         connection.connect()
@@ -168,6 +170,32 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         connection.play(album.tracks.map { it.toMediaItem() }, startIndex, shuffle && !noSkipping.value)
         _deckView.value = DeckView.Disc
         open(Screen.NowPlaying)
+    }
+
+    /** Plays a list of songs from anywhere in the library, such as search results. */
+    fun playTracks(tracks: List<Track>, startIndex: Int) {
+        if (tracks.isEmpty()) return
+        connection.play(tracks.map { it.toMediaItem() }, startIndex.coerceIn(0, tracks.lastIndex), false)
+        _deckView.value = DeckView.Disc
+        open(Screen.NowPlaying)
+    }
+
+    /** Opens Now Playing on one of the deck's views. */
+    fun openDeck(view: DeckView) {
+        _deckView.value = view
+        open(Screen.NowPlaying)
+    }
+
+    fun stop() {
+        connection.stop()
+    }
+
+    fun setSkin(skin: Skin) {
+        Preferences.setSkin(skin)
+    }
+
+    fun say(text: String) {
+        PlaybackEvents.post(text, isError = false)
     }
 
     fun setLibraryView(view: LibraryView) {

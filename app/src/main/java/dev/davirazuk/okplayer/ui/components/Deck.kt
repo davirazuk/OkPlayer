@@ -161,7 +161,7 @@ fun Lcd(
  * the song rather than on a timer.
  */
 @Composable
-fun Aurora(playing: Boolean, modifier: Modifier = Modifier) {
+fun Aurora(playing: Boolean, modifier: Modifier = Modifier, base: Color = Palette.Black) {
     var time by remember { mutableFloatStateOf(0f) }
     var bass by remember { mutableFloatStateOf(0f) }
     var mid by remember { mutableFloatStateOf(0f) }
@@ -182,7 +182,7 @@ fun Aurora(playing: Boolean, modifier: Modifier = Modifier) {
     }
 
     Canvas(modifier.fillMaxSize()) {
-        drawRect(Palette.Black)
+        drawRect(base)
         val blobs = listOf(
             Triple(Palette.Aero, Offset(0.18f, 0.22f), bass),
             Triple(Palette.Pink, Offset(0.84f, 0.30f), mid),

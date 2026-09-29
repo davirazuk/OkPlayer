@@ -48,6 +48,13 @@ import dev.davirazuk.okplayer.playback.QueueEntry
 import dev.davirazuk.okplayer.ui.DeckView
 import dev.davirazuk.okplayer.ui.LyricsState
 import dev.davirazuk.okplayer.ui.components.Aurora
+import dev.davirazuk.okplayer.ui.components.Disc
+import dev.davirazuk.okplayer.ui.components.Pill
+import dev.davirazuk.okplayer.ui.components.Spectrum
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import dev.davirazuk.okplayer.ui.components.DiscWell
 import dev.davirazuk.okplayer.ui.components.EqualizerPanel
 import dev.davirazuk.okplayer.ui.components.MenuItem
@@ -82,19 +89,38 @@ fun NowPlayingScreen(
     onEqualizerPreset: (String) -> Unit,
     sleepEndsAt: Long? = null,
     onSleep: (Int) -> Unit = {},
+    seven: Boolean = false,
 ) {
     Box(Modifier.fillMaxSize()) {
-        Aurora(playing = state.isPlaying)
+        Aurora(playing = state.isPlaying, base = if (seven) Palette.Navy else Palette.Black)
+        if (seven) Spectrum(state.isPlaying, Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.2f))
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            DeckTabs(deckView, onShowDeck, sleepEndsAt, onSleep)
+            if (seven) SevenTabs(deckView, onShowDeck, sleepEndsAt, onSleep) else DeckTabs(deckView, onShowDeck, sleepEndsAt, onSleep)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when (deckView) {
-                    DeckView.Disc -> DiscWell(
-                        artUri = state.artUri,
-                        playing = state.isPlaying,
-                        name = state.album.ifBlank { null },
-                        modifier = Modifier.fillMaxWidth(0.78f).widthIn(max = 330.dp),
-                    )
+                    DeckView.Disc -> if (seven) {
+                        // The original deck: the disc on its own, glowing, no well.
+                        Disc(
+                            artUri = state.artUri,
+                            playing = state.isPlaying,
+                            name = state.album.ifBlank { null },
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .widthIn(max = 320.dp)
+                                .drawBehind {
+                                    val r = size.minDimension / 2
+                                    drawCircle(Brush.radialGradient(listOf(Palette.Cyan.copy(alpha = 0.16f), Color.Transparent), radius = r * 1.35f), r * 1.35f)
+                                    drawCircle(Color.Black.copy(alpha = 0.5f), r, center.copy(y = center.y + 10.dp.toPx()))
+                                },
+                        )
+                    } else {
+                        DiscWell(
+                            artUri = state.artUri,
+                            playing = state.isPlaying,
+                            name = state.album.ifBlank { null },
+                            modifier = Modifier.fillMaxWidth(0.78f).widthIn(max = 330.dp),
+                        )
+                    }
                     DeckView.Lyrics -> LyricsView(lyrics, state.positionMs, onlineLyrics)
                     DeckView.PlayList -> PlayListView(queue, state.index, onPlayAt)
                     DeckView.Equalizer -> EqualizerPanel(
@@ -108,7 +134,7 @@ fun NowPlayingScreen(
                 }
             }
 
-            Lcd(
+            if (seven) SevenMeta(state, track, output, noSkipping) else Lcd(
                 track = if (state.isEmpty) "--" else "%02d".format(state.index + 1),
                 time = if (state.isEmpty) "-:--" else formatTime(state.positionMs),
                 title = state.title.ifEmpty { "No disc" },
@@ -175,12 +201,78 @@ private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt:
     }
 }
 
+/** The Seven skin's deck tabs: the original pill toggles, centred, with the sleep timer last. */
 @Composable
-private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit) {
+private fun SevenTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        listOf(DeckView.Disc to "Disc", DeckView.Lyrics to "Lyrics", DeckView.PlayList to "Play list", DeckView.Equalizer to "Equalizer")
+            .forEach { (view, label) -> Pill(label, view == current, onClick = { onShow(view) }) }
+        SleepButton(sleepEndsAt, onSleep, seven = true)
+    }
+}
+
+/** The original deck's title block: the song large and light, then what it is as small chips. */
+@Composable
+private fun SevenMeta(state: NowPlaying, track: TrackInfo?, output: OutputStatus, noSkipping: Boolean) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            state.title.ifEmpty { "nothing playing" },
+            style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Light, lineHeight = 27.sp, shadow = Shadow(Color.Black.copy(alpha = 0.7f), blurRadius = 8f)),
+            color = Palette.NavyText,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            if (state.isEmpty) "pick something from the library" else listOf(state.artist, state.album).filter { it.isNotBlank() }.joinToString(" — "),
+            fontSize = 13.sp,
+            color = Palette.NavyDim,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 3.dp),
+        )
+        if (!state.isEmpty) {
+            val usb = output as? OutputStatus.Usb
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                track?.let { Chip(formatLabel(it)) }
+                if (state.count > 1) Chip("${state.index + 1} of ${state.count}")
+                if (usb != null) Chip(if (usb.bitPerfect) "USB · BIT-PERFECT" else "USB", lit = usb.bitPerfect)
+                if (noSkipping) Chip("NO SKIP")
+            }
+        }
+    }
+}
+
+@Composable
+private fun Chip(text: String, lit: Boolean = false) {
+    val shape = RoundedCornerShape(50)
+    Text(
+        text,
+        fontSize = 10.5.sp,
+        letterSpacing = 0.08.em,
+        color = if (lit) Color.White else Color(0xFF9FD8FF),
+        maxLines = 1,
+        modifier = Modifier
+            .clip(shape)
+            .background(if (lit) Color(0xAA23466F) else Color(0x7323466F))
+            .border(1.dp, Palette.Cyan.copy(alpha = if (lit) 0.8f else 0.35f), shape)
+            .padding(horizontal = 8.dp, vertical = 1.dp),
+    )
+}
+
+@Composable
+private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit, seven: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     val left = endsAt?.let { ((it - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1) }
     Box {
-        Row(
+        if (seven) {
+            Pill(if (left != null) "$left min" else "", on = left != null, icon = Glyphs.Moon, onClick = { open = true })
+        } else Row(
             Modifier
                 .clip(RoundedCornerShape(3.dp))
                 .clickable(onClickLabel = "Sleep timer") { open = true }

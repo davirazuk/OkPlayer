@@ -18,6 +18,19 @@ import dev.davirazuk.okplayer.audio.formatRate
 import dev.davirazuk.okplayer.ui.components.GroupHeader
 import dev.davirazuk.okplayer.ui.components.Win7Check
 import dev.davirazuk.okplayer.ui.theme.Palette
+import dev.davirazuk.okplayer.data.Skin
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun OptionsScreen(
@@ -32,8 +45,20 @@ fun OptionsScreen(
     onNoSkipping: (Boolean) -> Unit,
     onBuiltInDecoder: (Boolean) -> Unit,
     onOnlineLyrics: (Boolean) -> Unit,
+    skin: Skin = Skin.Seven,
+    onSkin: (Skin) -> Unit = {},
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 20.dp)) {
+        GroupHeader("Look")
+        SkinChoice(
+            skin == Skin.Seven, { onSkin(Skin.Seven) }, "Seven",
+            "okplayer's original look: a dark deck with a big disc and glass buttons, and a Windows 7 taskbar with a Start menu.",
+        )
+        SkinChoice(
+            skin == Skin.Wmp, { onSkin(Skin.Wmp) }, "Windows Media Player 12",
+            "The light library, the black control bar and a CD player's display under the disc.",
+        )
+
         GroupHeader("Playback")
         Option(
             hiResOutput, onHiRes, "Hi-res output to USB DACs",
@@ -99,6 +124,31 @@ fun OptionsScreen(
 private fun Option(checked: Boolean, onChange: (Boolean) -> Unit, title: String, body: String) {
     Win7Check(checked, onChange, Modifier.padding(horizontal = 12.dp)) {
         Column {
+            Text(title, fontSize = 13.5.sp, color = Palette.Ink)
+            Text(body, fontSize = 12.sp, color = Palette.Sub, lineHeight = 16.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+}
+
+/** A Windows 7 radio button with a title and a line of explanation. */
+@Composable
+private fun SkinChoice(selected: Boolean, onSelect: () -> Unit, title: String, body: String) {
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.RadioButton, onClick = onSelect).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            Modifier
+                .padding(top = 2.dp)
+                .size(15.dp)
+                .border(1.dp, Color(0xFF8E8F8F), CircleShape)
+                .padding(2.dp)
+                .background(Brush.linearGradient(listOf(Color(0xFFDCDCDC), Color.White)), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) Box(Modifier.size(7.dp).background(Brush.radialGradient(listOf(Color(0xFF6D9AD0), Color(0xFF1C3B6E))), CircleShape))
+        }
+        Column(Modifier.padding(start = 8.dp)) {
             Text(title, fontSize = 13.5.sp, color = Palette.Ink)
             Text(body, fontSize = 12.sp, color = Palette.Sub, lineHeight = 16.sp, modifier = Modifier.padding(top = 2.dp))
         }

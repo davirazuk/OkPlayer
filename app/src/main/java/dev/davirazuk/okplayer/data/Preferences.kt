@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** How the app looks: okplayer's original dark deck with a taskbar, or Windows Media Player 12. */
+enum class Skin { Seven, Wmp }
+
 /**
  * App-wide settings. The playback service and the UI live in the same process,
  * so both read the same instance.
@@ -29,6 +32,9 @@ object Preferences {
     /** Look up lyrics on lrclib.net when the file has none. Sends artist, title, album and length. */
     val onlineLyrics: StateFlow<Boolean> = _onlineLyrics.asStateFlow()
 
+    private val _skin = MutableStateFlow(Skin.Seven)
+    val skin: StateFlow<Skin> = _skin.asStateFlow()
+
     private lateinit var ratingPrefs: SharedPreferences
     private val _ratings = MutableStateFlow<Map<String, Int>>(emptyMap())
 
@@ -41,6 +47,7 @@ object Preferences {
         _hiResOutput.value = prefs.getBoolean(KEY_HI_RES, true)
         _builtInDecoder.value = prefs.getBoolean(KEY_BUILT_IN_DECODER, false)
         _onlineLyrics.value = prefs.getBoolean(KEY_ONLINE_LYRICS, true)
+        _skin.value = if (prefs.getString(KEY_SKIN, null) == Skin.Wmp.name) Skin.Wmp else Skin.Seven
         ratingPrefs = context.getSharedPreferences("ratings", Context.MODE_PRIVATE)
         _ratings.value = ratingPrefs.all.mapNotNull { (k, v) -> (v as? Int)?.let { k to it } }.toMap()
     }
@@ -65,6 +72,11 @@ object Preferences {
         prefs.edit().putBoolean(KEY_ONLINE_LYRICS, enabled).apply()
     }
 
+    fun setSkin(skin: Skin) {
+        _skin.value = skin
+        prefs.edit().putString(KEY_SKIN, skin.name).apply()
+    }
+
     /** Sets a rating; passing the current rating again clears it, like Windows Media Player. */
     fun rate(mediaId: String, stars: Int) {
         val current = _ratings.value[mediaId]
@@ -81,4 +93,5 @@ object Preferences {
     private const val KEY_HI_RES = "hi_res_output"
     private const val KEY_BUILT_IN_DECODER = "built_in_decoder"
     private const val KEY_ONLINE_LYRICS = "online_lyrics"
+    private const val KEY_SKIN = "skin"
 }

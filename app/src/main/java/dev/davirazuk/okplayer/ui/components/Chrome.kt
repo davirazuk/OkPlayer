@@ -89,6 +89,9 @@ fun AeroWindow(
     onBack: () -> Unit,
     darkPane: Boolean,
     controlBar: @Composable () -> Unit,
+    showToolbar: Boolean = true,
+    darkColor: Color = Palette.Black,
+    taskbar: (@Composable () -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
@@ -96,28 +99,33 @@ fun AeroWindow(
             .fillMaxSize()
             .background(Brush.linearGradient(listOf(Palette.SkyTop, Palette.SkyMid, Palette.SkyBottom))),
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(Palette.Frame)
-                .drawBehind {
-                    drawRect(Palette.FrameEdge, style = Stroke(width = 1.dp.toPx()))
-                }
-                .statusBarsPadding()
-                .padding(horizontal = 5.dp),
-        ) {
-            TitleBar(title)
-            Toolbar(crumbs, canGoBack, onBack)
-            Box(
+        Column(Modifier.fillMaxSize()) {
+            Column(
                 Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .border(1.dp, Palette.FrameLine)
-                    .background(if (darkPane) Palette.Black else Palette.Paper)
-                    .padding(1.dp),
-                content = content,
-            )
-            controlBar()
+                    .background(Palette.Frame)
+                    .drawBehind {
+                        drawRect(Palette.FrameEdge, style = Stroke(width = 1.dp.toPx()))
+                    }
+                    .statusBarsPadding()
+                    .padding(horizontal = 5.dp)
+                    .then(if (taskbar != null) Modifier.padding(bottom = 5.dp) else Modifier),
+            ) {
+                TitleBar(title)
+                if (showToolbar) Toolbar(crumbs, canGoBack, onBack) else Spacer(Modifier.height(5.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .border(1.dp, Palette.FrameLine)
+                        .background(if (darkPane) darkColor else Palette.Paper)
+                        .padding(1.dp),
+                    content = content,
+                )
+                controlBar()
+            }
+            taskbar?.invoke()
         }
     }
 }
@@ -333,7 +341,7 @@ private fun NavOrb(icon: ImageVector, label: String, enabled: Boolean, onClick: 
 }
 
 @Composable
-private fun BoxScope.GlassHighlight(strength: Float = 0.55f) {
+internal fun BoxScope.GlassHighlight(strength: Float = 0.55f) {
     Canvas(Modifier.matchParentSize()) {
         drawOval(
             Brush.verticalGradient(listOf(Color.White.copy(alpha = strength), Color.Transparent), endY = size.height * 0.5f),
@@ -628,13 +636,17 @@ private fun NowPlayingStrip(info: NowPlayingInfo, onOpen: () -> Unit) {
 }
 
 @Composable
-private fun SeekLine(
+internal fun SeekLine(
     fraction: Float,
     enabled: Boolean,
     maxFraction: Float,
     onDrag: (Float) -> Unit,
     onRelease: (Float) -> Unit,
     modifier: Modifier,
+    trackHeight: Dp = 5.dp,
+    thumbRadius: Dp = 6.5.dp,
+    track: Color = Color(0xFF2B2F35),
+    fill: List<Color> = listOf(Palette.Aero, Color(0xFF9FDCFF)),
 ) {
     var last by remember { mutableStateOf(fraction) }
     Canvas(
@@ -658,19 +670,20 @@ private fun SeekLine(
                 }
             },
     ) {
-        val h = 5.dp.toPx()
+        val h = trackHeight.toPx()
         val y = (size.height - h) / 2
         val r = CornerRadius(h / 2, h / 2)
-        drawRoundRect(Color(0xFF2B2F35), Offset(0f, y), Size(size.width, h), r)
+        drawRoundRect(track, Offset(0f, y), Size(size.width, h), r)
         drawRoundRect(Color.Black.copy(alpha = 0.6f), Offset(0f, y), Size(size.width, 1.dp.toPx()), r)
         val w = size.width * fraction
         if (w > 0f) {
-            drawRoundRect(Brush.horizontalGradient(listOf(Palette.Aero, Color(0xFF9FDCFF)), endX = w.coerceAtLeast(1f)), Offset(0f, y), Size(w, h), r)
+            drawRoundRect(Brush.horizontalGradient(fill, endX = w.coerceAtLeast(1f)), Offset(0f, y), Size(w, h), r)
         }
         if (enabled) {
-            val c = Offset(w.coerceIn(6.dp.toPx(), size.width - 6.dp.toPx()), size.height / 2)
-            drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFA8DCFF), Color(0xFF3B92D4)), center = c.copy(y = c.y - 2f), radius = 7.dp.toPx()), 6.5.dp.toPx(), c)
-            drawCircle(Color(0xFF0C3F68), 6.5.dp.toPx(), c, style = Stroke(1.dp.toPx()))
+            val tr = thumbRadius.toPx()
+            val c = Offset(w.coerceIn(tr, size.width - tr), size.height / 2)
+            drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFA8DCFF), Color(0xFF3B92D4)), center = c.copy(y = c.y - 2f), radius = tr + 0.5.dp.toPx()), tr, c)
+            drawCircle(Color(0xFF0C3F68), tr, c, style = Stroke(1.dp.toPx()))
         }
     }
 }

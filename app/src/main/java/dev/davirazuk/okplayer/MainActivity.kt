@@ -52,6 +52,18 @@ import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
 import dev.davirazuk.okplayer.ui.screens.OptionsScreen
 import dev.davirazuk.okplayer.ui.theme.OkPlayerTheme
+import dev.davirazuk.okplayer.ui.theme.Palette
+import dev.davirazuk.okplayer.ui.components.SevenControls
+import dev.davirazuk.okplayer.ui.components.StartMenuPanel
+import dev.davirazuk.okplayer.ui.components.Taskbar
+import dev.davirazuk.okplayer.ui.LibraryState
+import dev.davirazuk.okplayer.data.Skin
+import dev.davirazuk.okplayer.audio.OutputStatus
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -94,6 +106,9 @@ private fun App(vm: PlayerViewModel) {
     val equalizer by vm.equalizer.collectAsStateWithLifecycle()
     val playStats by vm.playStats.collectAsStateWithLifecycle()
     val sleepEndsAt by vm.sleepEndsAt.collectAsStateWithLifecycle()
+    val skin by vm.skin.collectAsStateWithLifecycle()
+    val seven = skin == Skin.Seven
+    var startOpen by remember { mutableStateOf(false) }
     val queueActions = remember(vm) { QueueActions(playNext = vm::playNext, enqueue = vm::enqueue) }
 
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -127,14 +142,78 @@ private fun App(vm: PlayerViewModel) {
         Screen.Options -> listOf(library, Crumb("Options"))
     }
 
+    val info = if (nowPlaying.isEmpty) null else NowPlayingInfo(nowPlaying.title, nowPlaying.artist, nowPlaying.artUri)
     AeroWindow(
         title = if (nowPlaying.isEmpty) "okplayer" else "${nowPlaying.title} - okplayer",
         crumbs = crumbs,
         canGoBack = screen != Screen.Library,
         onBack = { vm.back() },
         darkPane = screen == Screen.NowPlaying,
+        darkColor = if (seven) Palette.Navy else Palette.Black,
+        showToolbar = !(seven && screen == Screen.NowPlaying),
+        taskbar = if (!seven) null else {
+            {
+                Taskbar(
+                    nowPlayingTitle = info?.title,
+                    onNowPlaying = screen == Screen.NowPlaying,
+                    onLibrary = { if (screen == Screen.NowPlaying) vm.switchView() },
+                    onOpenNowPlaying = { if (screen != Screen.NowPlaying) vm.open(Screen.NowPlaying) },
+                    startOpen = startOpen,
+                    onStart = { startOpen = !startOpen },
+                    onStartDismiss = { startOpen = false },
+                    usbConnected = output is OutputStatus.Usb,
+                    onUsb = {
+                        (output as? OutputStatus.Usb)?.let { o ->
+                            vm.say(if (o.bitPerfect) "${o.deviceName}: bit-perfect." else "${o.deviceName}: ${o.reason ?: "resampled by Android"}.")
+                        }
+                    },
+                    sleeping = sleepEndsAt != null,
+                    onSleep = {
+                        sleepEndsAt?.let { vm.say("Music stops in ${((it - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1)} minutes.") }
+                    },
+                ) {
+                    StartMenuPanel(
+                        albums = (libraryState as? LibraryState.Ready)?.albums.orEmpty(),
+                        playingTitle = info?.title,
+                        playingArtist = if (nowPlaying.isEmpty) null else nowPlaying.artist.ifBlank { null },
+                        playingArt = nowPlaying.artUri,
+                        playingAlbum = nowPlaying.album.ifBlank { null },
+                        sleepEndsAt = sleepEndsAt,
+                        onNowPlaying = { vm.open(Screen.NowPlaying) },
+                        onView = vm::setLibraryView,
+                        onOpenAlbum = { vm.open(Screen.AlbumDetail(it.id)) },
+                        onOpenArtist = { vm.open(Screen.ArtistDetail(it)) },
+                        onPlaySongs = vm::playTracks,
+                        onDeck = vm::openDeck,
+                        onSleep = vm::setSleepTimer,
+                        onSkin = { vm.setSkin(Skin.Wmp) },
+                        onOptions = { vm.open(Screen.Options) },
+                        onRefresh = vm::refresh,
+                        onStop = vm::stop,
+                        onDismiss = { startOpen = false },
+                    )
+                }
+            }
+        },
         controlBar = {
-            ControlBar(
+            if (seven) SevenControls(
+                compact = screen != Screen.NowPlaying,
+                info = info,
+                positionMs = nowPlaying.positionMs,
+                durationMs = nowPlaying.durationMs,
+                enabled = !nowPlaying.isEmpty,
+                isPlaying = nowPlaying.isPlaying,
+                shuffle = nowPlaying.shuffle,
+                noSkipping = noSkipping,
+                canGoNext = nowPlaying.hasNext && !noSkipping,
+                onSeek = vm::seekTo,
+                onTogglePlay = vm::togglePlay,
+                onPrevious = vm::previous,
+                onNext = vm::next,
+                onShuffle = vm::toggleShuffle,
+                onNoSkipping = { vm.setNoSkipping(!noSkipping) },
+                onOpenNowPlaying = { vm.open(Screen.NowPlaying) },
+            ) else ControlBar(
                 positionMs = nowPlaying.positionMs,
                 durationMs = nowPlaying.durationMs,
                 enabled = !nowPlaying.isEmpty,
@@ -221,6 +300,7 @@ private fun App(vm: PlayerViewModel) {
                     onEqualizerPreset = vm::applyEqualizerPreset,
                     sleepEndsAt = sleepEndsAt,
                     onSleep = vm::setSleepTimer,
+                    seven = seven,
                 )
 
                 Screen.Options -> OptionsScreen(
@@ -235,19 +315,39 @@ private fun App(vm: PlayerViewModel) {
                     onNoSkipping = vm::setNoSkipping,
                     onBuiltInDecoder = vm::setBuiltInDecoder,
                     onOnlineLyrics = vm::setOnlineLyrics,
+                    skin = skin,
+                    onSkin = vm::setSkin,
                 )
             }
         }
-        notice?.let { NoticeBalloon(it, onDismiss = { vm.dismissNotice(it.id) }) }
+        notice?.let { NoticeBalloon(it, seven, onDismiss = { vm.dismissNotice(it.id) }) }
     }
 }
 
-/** A Windows 7 notification balloon along the bottom of the pane. */
+/** A Windows 7 notification balloon: along the bottom of the pane, or rising from the tray in Seven. */
 @Composable
-private fun BoxScope.NoticeBalloon(notice: Notice, onDismiss: () -> Unit) {
+private fun BoxScope.NoticeBalloon(notice: Notice, seven: Boolean, onDismiss: () -> Unit) {
     LaunchedEffect(notice.id) {
         delay(if (notice.isError) 7000 else 4500)
         onDismiss()
+    }
+    if (seven) {
+        val shape = RoundedCornerShape(6.dp)
+        Text(
+            notice.text,
+            fontSize = 12.5.sp,
+            color = Color.Black,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(10.dp)
+                .widthIn(max = 300.dp)
+                .shadow(5.dp, shape)
+                .background(Brush.verticalGradient(listOf(Color.White, Color(0xFFE7E9F2))), shape)
+                .border(1.dp, Color(0xFF6D7B8A), shape)
+                .clickable(onClick = onDismiss)
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        )
+        return
     }
     Text(
         notice.text,

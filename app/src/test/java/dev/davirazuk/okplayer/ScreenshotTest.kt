@@ -33,6 +33,12 @@ import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
 import dev.davirazuk.okplayer.ui.screens.OptionsScreen
 import dev.davirazuk.okplayer.ui.theme.OkPlayerTheme
+import dev.davirazuk.okplayer.ui.theme.Palette
+import dev.davirazuk.okplayer.ui.components.SevenControls
+import dev.davirazuk.okplayer.ui.components.StartMenuPanel
+import dev.davirazuk.okplayer.ui.components.Taskbar
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import org.junit.Rule
 import org.junit.Test
 
@@ -124,6 +130,88 @@ class ScreenshotTest {
 
     @Test
     fun nowPlaying() = paparazzi.snapshot { NowPlayingIn(DeckView.Disc) }
+
+    /* ---------- the Seven skin ---------- */
+
+    @Composable
+    private fun SevenWindow(nowPlaying: Boolean, state: NowPlaying = playing, content: @Composable BoxScope.() -> Unit) {
+        OkPlayerTheme {
+            AeroWindow(
+                title = if (state.isEmpty) "okplayer" else "${state.title} - okplayer",
+                crumbs = if (nowPlaying) listOf(Crumb("Now Playing")) else listOf(Crumb("Library"), Crumb("Albums", menu = listOf(MenuItem("Albums") {}))),
+                canGoBack = false,
+                onBack = {},
+                darkPane = nowPlaying,
+                darkColor = Palette.Navy,
+                showToolbar = !nowPlaying,
+                taskbar = {
+                    Taskbar(
+                        nowPlayingTitle = if (state.isEmpty) null else state.title, onNowPlaying = nowPlaying, onLibrary = {}, onOpenNowPlaying = {},
+                        startOpen = false, onStart = {}, onStartDismiss = {}, usbConnected = true, onUsb = {}, sleeping = true, onSleep = {},
+                    ) {}
+                },
+                controlBar = {
+                    SevenControls(
+                        compact = !nowPlaying, info = if (state.isEmpty) null else NowPlayingInfo(state.title, state.artist, null),
+                        positionMs = state.positionMs, durationMs = state.durationMs, enabled = !state.isEmpty, isPlaying = state.isPlaying,
+                        shuffle = true, noSkipping = false, canGoNext = true,
+                        onSeek = {}, onTogglePlay = {}, onPrevious = {}, onNext = {}, onShuffle = {}, onNoSkipping = {}, onOpenNowPlaying = {},
+                    )
+                },
+                content = content,
+            )
+        }
+    }
+
+    @Composable
+    private fun SevenNowPlaying(view: DeckView, state: NowPlaying = playing) = SevenWindow(nowPlaying = true, state = state) {
+        NowPlayingScreen(
+            state = state, track = if (state.isEmpty) null else flac, output = if (state.isEmpty) OutputStatus.Idle else usb, rating = 4,
+            noSkipping = false, deckView = view, lyrics = lyrics, onlineLyrics = true,
+            queue = okComputer.mapIndexed { i, (t, _) -> QueueEntry("${100 + i}", t, "Radiohead") },
+            equalizer = eq, equalizerPresets = listOf("Flat", "Rock", "Custom"),
+            onRate = {}, onShowDeck = {}, onPlayAt = {}, onEqualizer = {}, onEqualizerBand = { _, _ -> }, onEqualizerPreset = {},
+            sleepEndsAt = System.currentTimeMillis() + 29 * 60_000L, seven = true,
+        )
+    }
+
+    @Test
+    fun sevenNowPlaying() = paparazzi.snapshot { SevenNowPlaying(DeckView.Disc) }
+
+    @Test
+    fun sevenLyrics() = paparazzi.snapshot { SevenNowPlaying(DeckView.Lyrics) }
+
+    @Test
+    fun sevenEmpty() = paparazzi.snapshot { SevenNowPlaying(DeckView.Disc, NowPlaying()) }
+
+    @Test
+    fun sevenLibrary() = paparazzi.snapshot {
+        SevenWindow(nowPlaying = false) {
+            LibraryScreen(LibraryState.Ready(albums), LibraryView.Albums, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    /** The Start menu, drawn in place over the deck since popups don't render here. */
+    @Composable
+    private fun StartMenuOver(query: String) = SevenWindow(nowPlaying = true) {
+        NowPlayingScreen(
+            state = playing, track = flac, output = usb, rating = 4, noSkipping = false, deckView = DeckView.Disc, lyrics = lyrics, onlineLyrics = true,
+            queue = emptyList(), equalizer = eq, equalizerPresets = emptyList(),
+            onRate = {}, onShowDeck = {}, onPlayAt = {}, onEqualizer = {}, onEqualizerBand = { _, _ -> }, onEqualizerPreset = {}, seven = true,
+        )
+        StartMenuPanel(
+            albums = albums, playingTitle = playing.title, playingArtist = playing.artist, playingArt = null, playingAlbum = playing.album,
+            sleepEndsAt = null, onNowPlaying = {}, onView = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySongs = { _, _ -> }, onDeck = {},
+            onSleep = {}, onSkin = {}, onOptions = {}, onRefresh = {}, onStop = {}, onDismiss = {},
+            modifier = Modifier.align(Alignment.BottomStart), initialQuery = query,
+        )
+    }
+
+    @Test
+    fun sevenStartMenu() = paparazzi.snapshot { StartMenuOver("") }
+
+    @Test
+    fun sevenStartSearch() = paparazzi.snapshot { StartMenuOver("radio") }
 
     @Test
     fun nowPlayingLyrics() = paparazzi.snapshot { NowPlayingIn(DeckView.Lyrics) }

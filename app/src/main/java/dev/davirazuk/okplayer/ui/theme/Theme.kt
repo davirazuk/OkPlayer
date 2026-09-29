@@ -46,6 +46,15 @@ object Palette {
     val StarOff = Color(0xFF3A414B)
     val Pink = Color(0xFFF5A9B8)
     val Lavender = Color(0xFFC9B8FF)
+
+    // The Seven skin: okplayer's original navy deck, pill toggles and glass orbs.
+    val Navy = Color(0xFF0B1420)
+    val NavyText = Color(0xFFE6F1FF)
+    val NavyDim = Color(0xFF8AA3BD)
+    val Pill = Color(0xFF16233A)
+    val PillEdge = Color(0xFF2E4260)
+    val PillOn = Color(0xFF23466F)
+    val Cyan = Color(0xFF5BCEFA)
 }
 
 private val scheme = lightColorScheme(
