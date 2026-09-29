@@ -39,11 +39,23 @@ object SleepTimer {
     private val _endsAt = MutableStateFlow<Long?>(null)
     val endsAt: StateFlow<Long?> = _endsAt.asStateFlow()
 
+    private val _atSongEnd = MutableStateFlow(false)
+
+    /** Stop when the current song ends instead of at a time. */
+    val atSongEnd: StateFlow<Boolean> = _atSongEnd.asStateFlow()
+
     fun start(minutes: Int) {
+        _atSongEnd.value = false
         _endsAt.value = System.currentTimeMillis() + minutes * 60_000L
+    }
+
+    fun startAtSongEnd() {
+        _endsAt.value = null
+        _atSongEnd.value = true
     }
 
     fun cancel() {
         _endsAt.value = null
+        _atSongEnd.value = false
     }
 }

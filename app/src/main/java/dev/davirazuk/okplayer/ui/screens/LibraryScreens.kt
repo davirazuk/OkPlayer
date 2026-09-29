@@ -23,6 +23,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import dev.davirazuk.okplayer.ui.components.StartIcon
+import dev.davirazuk.okplayer.ui.components.StartIcons
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
@@ -83,6 +86,8 @@ fun LibraryScreen(
     onOptions: () -> Unit,
     actions: QueueActions = QueueActions(),
     stats: Map<String, PlayStat> = emptyMap(),
+    onOpenFolder: (String) -> Unit = {},
+    onPlayFolder: (List<Track>, Int, Boolean?) -> Unit = { _, _, _ -> },
 ) {
     Column(Modifier.fillMaxSize()) {
         CommandBar {
@@ -107,6 +112,8 @@ fun LibraryScreen(
                     "No music found. Copy FLAC, ALAC, MP3, AAC, OGG, Opus or WAV files into the Music folder, then tap Refresh.",
                     Modifier.padding(12.dp),
                 )
+            } else if (view == LibraryView.Folders && query.isBlank()) {
+                FolderList(FolderIndex.of(state.albums), "", onOpenFolder, onPlayFolder, actions)
             } else {
                 LibraryContent(view, state.albums, query.trim(), onOpenAlbum, onOpenArtist, onPlaySong, actions, stats)
             }
@@ -169,6 +176,8 @@ private fun LibraryContent(
         when {
             autoView -> emptyList()
             view == LibraryView.Songs && query.isEmpty() -> hits.sortedBy { it.track.title.lowercase() }
+            view == LibraryView.Folders -> hits.filter { it.track.title.contains(query, true) || it.track.folder.contains(query, true) }
+                .sortedBy { it.track.title.lowercase() }
             query.isEmpty() -> emptyList()
             else -> hits.filter { it.track.title.contains(query, true) || (view == LibraryView.Songs && it.track.artist.contains(query, true)) }
                 .sortedBy { it.track.title.lowercase() }
@@ -201,7 +210,7 @@ private fun LibraryContent(
         val nothing = when (view) {
             LibraryView.Albums -> albums.isEmpty() && songs.isEmpty()
             LibraryView.Artists -> artists.isEmpty() && songs.isEmpty()
-            LibraryView.Songs -> songs.isEmpty()
+            LibraryView.Songs, LibraryView.Folders -> songs.isEmpty()
             LibraryView.RecentlyAdded -> recent.isEmpty()
             LibraryView.MostPlayed, LibraryView.RecentlyPlayed -> played.isEmpty()
         }
@@ -261,6 +270,130 @@ private fun LibraryContent(
                 AlbumTile(album, albumMenu(album, actions, { onOpenAlbum(album) }, { onPlaySong(album, 0) })) { onOpenAlbum(album) }
             }
         }
+    }
+}
+
+/* ---------------- folders ---------------- */
+
+/** The folders that hold music, as a tree built from each song's folder. */
+class FolderIndex private constructor(private val songs: Map<String, List<Track>>) {
+    private val children: Map<String, List<String>> = buildMap<String, MutableSet<String>> {
+        for (folder in songs.keys) {
+            var path = folder
+            while (path.isNotEmpty()) {
+                val parent = path.substringBeforeLast('/', "")
+                getOrPut(parent) { mutableSetOf() } += path
+                path = parent
+            }
+        }
+    }.mapValues { (_, set) -> set.sortedBy { it.lowercase() } }
+
+    fun subfolders(path: String): List<String> = children[path].orEmpty()
+
+    /** Songs directly in [path], in album order. */
+    fun songsIn(path: String): List<Track> = songs[path].orEmpty()
+
+    /** Every song under [path], folder by folder. */
+    fun allUnder(path: String): List<Track> = songsIn(path) + subfolders(path).flatMap { allUnder(it) }
+
+    fun count(path: String): Int = songsIn(path).size + subfolders(path).sumOf { count(it) }
+
+    companion object {
+        fun of(albums: List<Album>) = FolderIndex(
+            albums.asSequence().flatMap { it.tracks }.groupBy { it.folder }
+                .mapValues { (_, list) -> list.sortedWith(compareBy<Track>({ it.album.lowercase() }, { it.discNumber }, { it.trackNumber }, { it.title.lowercase() })) },
+        )
+    }
+}
+
+/** A folder's subfolders, then its songs, like Explorer's details view. */
+@Composable
+fun FolderList(
+    index: FolderIndex,
+    path: String,
+    onOpenFolder: (String) -> Unit,
+    onPlay: (List<Track>, Int, Boolean?) -> Unit,
+    actions: QueueActions,
+) {
+    val folders = remember(index, path) { index.subfolders(path) }
+    val songs = remember(index, path) { index.songsIn(path) }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        if (folders.isEmpty() && songs.isEmpty()) {
+            item { Text("This folder is empty.", fontSize = 13.sp, color = Palette.Sub, modifier = Modifier.padding(12.dp)) }
+        }
+        if (folders.isNotEmpty()) {
+            item { GroupHeader("Folders (${folders.size})") }
+            items(folders, key = { "folder-$it" }) { folder ->
+                val subs = index.subfolders(folder).size
+                val detail = listOfNotNull(
+                    plural(index.count(folder), "song"),
+                    if (subs > 0) plural(subs, "folder") else null,
+                ).joinToString(", ")
+                FolderRow(
+                    name = folder.substringAfterLast('/'),
+                    detail = detail,
+                    menu = listOf(
+                        MenuItem("Open") { onOpenFolder(folder) },
+                        MenuItem("Play") { onPlay(index.allUnder(folder), 0, false) },
+                        MenuItem("Play next") { actions.playNext(index.allUnder(folder)) },
+                        MenuItem("Add to Now Playing") { actions.enqueue(index.allUnder(folder)) },
+                    ),
+                ) { onOpenFolder(folder) }
+            }
+        }
+        if (songs.isNotEmpty()) {
+            item { GroupHeader("Songs (${songs.size})") }
+            items(songs.size) { i ->
+                val track = songs[i]
+                val play = { onPlay(songs, i, null) }
+                SongRow(track.title, "${track.artist} · ${track.album}", formatTime(track.durationMs), songMenu(track, actions, play), play)
+            }
+        }
+    }
+}
+
+/** A folder inside the library, with Play all and Shuffle for everything under it. */
+@Composable
+fun FolderScreen(
+    albums: List<Album>,
+    path: String,
+    noSkipping: Boolean,
+    onOpenFolder: (String) -> Unit,
+    onPlay: (List<Track>, Int, Boolean?) -> Unit,
+    actions: QueueActions = QueueActions(),
+) {
+    val index = remember(albums) { FolderIndex.of(albums) }
+    Column(Modifier.fillMaxSize()) {
+        CommandBar(trailing = plural(index.count(path), "song")) {
+            Command("Play all") { onPlay(index.allUnder(path), 0, false) }
+            if (!noSkipping) Command("Shuffle") { onPlay(index.allUnder(path), 0, true) }
+            Command("Add to Now Playing") { actions.enqueue(index.allUnder(path)) }
+        }
+        FolderList(index, path, onOpenFolder, onPlay, actions)
+    }
+}
+
+@Composable
+private fun FolderRow(name: String, detail: String, menu: List<MenuItem>, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .explorerItem(selected = open, source = source, pressed = pressed, onLongClick = { open = true }, onClick = onClick)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StartIcon(StartIcons.Library, 30.dp)
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(name, fontSize = 13.5.sp, color = Palette.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(detail, fontSize = 11.5.sp, color = Palette.Sub, maxLines = 1)
+            }
+        }
+        if (open) Win7Menu(menu, onDismiss = { open = false }, offsetY = 48.dp)
     }
 }
 

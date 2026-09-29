@@ -3,6 +3,7 @@ package dev.davirazuk.okplayer.library
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -24,6 +25,8 @@ data class Track(
     val mimeType: String?,
     /** When the file appeared on the phone, in seconds since 1970. */
     val dateAddedSec: Long = 0,
+    /** The folder the file is in, relative to the storage it's on, like "Music/Radiohead/OK Computer". */
+    val folder: String = "",
 ) {
     val artUri: Uri get() = albumArtUri(albumId)
 
@@ -104,6 +107,7 @@ class LibraryRepository(private val context: Context) {
             MediaStore.Audio.Media.YEAR,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.DATE_ADDED,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Audio.Media.RELATIVE_PATH else DATA_COLUMN,
         )
         val result = mutableListOf<Track>()
         context.contentResolver.query(collection, projection, selection, args, null)?.use { c ->
@@ -118,6 +122,7 @@ class LibraryRepository(private val context: Context) {
             val yearCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
             val mimeCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
             val addedCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+            val folderCol = c.getColumnIndex(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Audio.Media.RELATIVE_PATH else DATA_COLUMN)
 
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
@@ -139,10 +144,18 @@ class LibraryRepository(private val context: Context) {
                     year = c.getInt(yearCol).takeIf { it > 0 },
                     mimeType = c.getString(mimeCol),
                     dateAddedSec = c.getLong(addedCol),
+                    folder = if (folderCol >= 0) folderOf(c.getString(folderCol)) else "",
                 )
             }
         }
         return result
+    }
+
+    /** RELATIVE_PATH ("Music/X/") on Android 10+, or the file's parent under the storage root before that. */
+    private fun folderOf(value: String?): String {
+        if (value.isNullOrBlank()) return ""
+        val dir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) value else value.substringBeforeLast('/', "")
+        return dir.replace(STORAGE_ROOT, "").trim('/')
     }
 
     private fun String?.orUnknown() =
@@ -151,5 +164,9 @@ class LibraryRepository(private val context: Context) {
     private companion object {
         // Public constant only exists from API 30; the column itself is older.
         const val COLUMN_ALBUM_ARTIST = "album_artist"
+
+        // The file path column, deprecated but the only folder information before Android 10.
+        const val DATA_COLUMN = "_data"
+        val STORAGE_ROOT = Regex("^/storage/(emulated/\\d+|[^/]+)/")
     }
 }

@@ -608,6 +608,7 @@ fun StartMenuPanel(
                     StartItem(StartIcons.Artists, "Artists", onClick = act { onView(LibraryView.Artists) })
                     StartItem(StartIcons.Albums, "Albums", onClick = act { onView(LibraryView.Albums) })
                     StartItem(StartIcons.Songs, "Songs", onClick = act { onView(LibraryView.Songs) })
+                    StartItem(StartIcons.Library, "Folders", onClick = act { onView(LibraryView.Folders) })
                     StartItem(StartIcons.Added, "Recently added", onClick = act { onView(LibraryView.RecentlyAdded) })
                     StartItem(StartIcons.Most, "Most played", onClick = act { onView(LibraryView.MostPlayed) })
                     StartItem(StartIcons.Played, "Recently played", onClick = act { onView(LibraryView.RecentlyPlayed) })
@@ -674,6 +675,7 @@ fun StartMenuPanel(
                 if (sleepMenu) {
                     Win7Menu(
                         listOf(15, 30, 45, 60, 90).map { m -> MenuItem("Stop in $m minutes") { onSleep(m); onDismiss() } } +
+                            MenuItem("Stop at the end of this song") { onSleep(-1); onDismiss() } +
                             listOfNotNull(if (sleepEndsAt != null) MenuItem("Turn off sleep timer") { onSleep(0); onDismiss() } else null),
                         onDismiss = { sleepMenu = false },
                         offsetY = 30.dp,

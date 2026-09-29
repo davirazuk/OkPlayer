@@ -29,6 +29,7 @@ import dev.davirazuk.okplayer.ui.components.NowPlayingInfo
 import dev.davirazuk.okplayer.ui.LibraryView
 import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
+import dev.davirazuk.okplayer.ui.screens.FolderScreen
 import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
 import dev.davirazuk.okplayer.ui.screens.OptionsScreen
@@ -300,6 +301,22 @@ class ScreenshotTest {
     fun search() = paparazzi.snapshot {
         Window("okplayer", listOf(Crumb("Library"), Crumb("Albums")), dark = false) {
             LibraryScreen(LibraryState.Ready(albums), LibraryView.Albums, "radio", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    private val foldered = albums.map { a -> a.copy(tracks = a.tracks.map { it.copy(folder = "Music/${a.artist}/${a.title}") }) }
+
+    @Test
+    fun folders() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Folders", menu = listOf(MenuItem("Folders") {}))), dark = false) {
+            LibraryScreen(LibraryState.Ready(foldered), LibraryView.Folders, "", {}, onRequestPermission = {}, onOpenAlbum = {}, onOpenArtist = {}, onPlaySong = { _, _ -> }, onRefresh = {}, onOptions = {})
+        }
+    }
+
+    @Test
+    fun folder() = paparazzi.snapshot {
+        Window("okplayer", listOf(Crumb("Library"), Crumb("Folders"), Crumb("Music"), Crumb("Radiohead")), dark = false) {
+            FolderScreen(foldered, "Music/Radiohead", noSkipping = false, onOpenFolder = {}, onPlay = { _, _, _ -> })
         }
     }
 

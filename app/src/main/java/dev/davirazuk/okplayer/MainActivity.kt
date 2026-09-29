@@ -48,6 +48,7 @@ import dev.davirazuk.okplayer.ui.screens.ArtistScreen
 import dev.davirazuk.okplayer.ui.screens.QueueActions
 import androidx.compose.runtime.remember
 import dev.davirazuk.okplayer.ui.screens.AlbumScreen
+import dev.davirazuk.okplayer.ui.screens.FolderScreen
 import dev.davirazuk.okplayer.ui.screens.LibraryScreen
 import dev.davirazuk.okplayer.ui.screens.NowPlayingScreen
 import dev.davirazuk.okplayer.ui.screens.OptionsScreen
@@ -106,6 +107,7 @@ private fun App(vm: PlayerViewModel) {
     val equalizer by vm.equalizer.collectAsStateWithLifecycle()
     val playStats by vm.playStats.collectAsStateWithLifecycle()
     val sleepEndsAt by vm.sleepEndsAt.collectAsStateWithLifecycle()
+    val sleepAtSongEnd by vm.sleepAtSongEnd.collectAsStateWithLifecycle()
     val skin by vm.skin.collectAsStateWithLifecycle()
     val seven = skin == Skin.Seven
     var startOpen by remember { mutableStateOf(false) }
@@ -138,6 +140,14 @@ private fun App(vm: PlayerViewModel) {
         Screen.Library -> listOf(library, Crumb(libraryView.label, menu = views))
         is Screen.AlbumDetail -> listOf(library, Crumb(libraryView.label, menu = views), Crumb(vm.album(s.albumId)?.title ?: "Album"))
         is Screen.ArtistDetail -> listOf(library, Crumb("Artists", menu = views), Crumb(s.artist))
+        is Screen.FolderDetail -> {
+            // Every folder up the path is a step back, like Explorer's address bar.
+            val parts = s.path.split('/')
+            listOf(library, Crumb("Folders", menu = views)) + parts.mapIndexed { i, name ->
+                val path = parts.take(i + 1).joinToString("/")
+                Crumb(name, onClick = if (i < parts.lastIndex) ({ vm.open(Screen.FolderDetail(path)) }) else null)
+            }
+        }
         Screen.NowPlaying -> listOf(Crumb("Now Playing"))
         Screen.Options -> listOf(library, Crumb("Options"))
     }
@@ -167,8 +177,9 @@ private fun App(vm: PlayerViewModel) {
                             vm.say(if (o.bitPerfect) "${o.deviceName}: bit-perfect." else "${o.deviceName}: ${o.reason ?: "resampled by Android"}.")
                         }
                     },
-                    sleeping = sleepEndsAt != null,
+                    sleeping = sleepEndsAt != null || sleepAtSongEnd,
                     onSleep = {
+                        if (sleepAtSongEnd) vm.say("Music stops when this song ends.")
                         sleepEndsAt?.let { vm.say("Music stops in ${((it - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1)} minutes.") }
                     },
                 ) {
@@ -256,6 +267,17 @@ private fun App(vm: PlayerViewModel) {
                     onOptions = { vm.open(Screen.Options) },
                     actions = queueActions,
                     stats = playStats,
+                    onOpenFolder = { vm.open(Screen.FolderDetail(it)) },
+                    onPlayFolder = vm::playFolder,
+                )
+
+                is Screen.FolderDetail -> FolderScreen(
+                    albums = (libraryState as? LibraryState.Ready)?.albums.orEmpty(),
+                    path = target.path,
+                    noSkipping = noSkipping,
+                    onOpenFolder = { vm.open(Screen.FolderDetail(it)) },
+                    onPlay = vm::playFolder,
+                    actions = queueActions,
                 )
 
                 is Screen.AlbumDetail -> {
@@ -305,6 +327,7 @@ private fun App(vm: PlayerViewModel) {
                     sleepEndsAt = sleepEndsAt,
                     onSleep = vm::setSleepTimer,
                     seven = seven,
+                    sleepAtSongEnd = sleepAtSongEnd,
                 )
 
                 Screen.Options -> OptionsScreen(

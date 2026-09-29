@@ -151,6 +151,8 @@ class PlaybackService : MediaSessionService() {
 
         restoreQueue()
         runSleepTimer()
+        // "At the end of this song": ExoPlayer pauses right as the song ends, before the next starts.
+        scope.launch { SleepTimer.atSongEnd.collect { player.pauseAtEndOfMediaItems = it } }
     }
 
     /** Fades out over the last ten seconds, then pauses and restores the volume. */
@@ -229,6 +231,12 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onPlayerError(error: PlaybackException) = recover(error)
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && SleepTimer.atSongEnd.value) {
+                SleepTimer.cancel()
+            }
+        }
 
         override fun onEvents(player: Player, events: Player.Events) {
             if (events.containsAny(

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Android: **Folders** view (from the breadcrumb or Start) for music organised in
+  folders: browse the tree, play or shuffle everything under a folder, or queue it.
+- Android: the sleep timer can stop **at the end of this song**.
 - Desktop: **open files and folders with okplayer** (or drop them on the `.exe`), the
   Windows **taskbar thumbnail buttons** (previous / play / next), the song in the real
   taskbar, and the window reopening where you left it.

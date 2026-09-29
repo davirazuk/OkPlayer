@@ -90,12 +90,13 @@ fun NowPlayingScreen(
     sleepEndsAt: Long? = null,
     onSleep: (Int) -> Unit = {},
     seven: Boolean = false,
+    sleepAtSongEnd: Boolean = false,
 ) {
     Box(Modifier.fillMaxSize()) {
         Aurora(playing = state.isPlaying, base = if (seven) Palette.Navy else Palette.Black)
         if (seven) Spectrum(state.isPlaying, Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.2f))
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (seven) SevenTabs(deckView, onShowDeck, sleepEndsAt, onSleep) else DeckTabs(deckView, onShowDeck, sleepEndsAt, onSleep)
+            if (seven) SevenTabs(deckView, onShowDeck, sleepEndsAt, onSleep, sleepAtSongEnd) else DeckTabs(deckView, onShowDeck, sleepEndsAt, onSleep, sleepAtSongEnd)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when (deckView) {
                     DeckView.Disc -> if (seven) {
@@ -166,7 +167,7 @@ fun NowPlayingScreen(
 }
 
 @Composable
-private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit) {
+private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit, atSongEnd: Boolean) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -197,13 +198,13 @@ private fun DeckTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt:
             )
         }
         Spacer(Modifier.weight(1f))
-        SleepButton(sleepEndsAt, onSleep)
+        SleepButton(sleepEndsAt, onSleep, atSongEnd = atSongEnd)
     }
 }
 
 /** The Seven skin's deck tabs: the original pill toggles, centred, with the sleep timer last. */
 @Composable
-private fun SevenTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit) {
+private fun SevenTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt: Long?, onSleep: (Int) -> Unit, atSongEnd: Boolean) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
@@ -211,7 +212,7 @@ private fun SevenTabs(current: DeckView, onShow: (DeckView) -> Unit, sleepEndsAt
     ) {
         listOf(DeckView.Disc to "Disc", DeckView.Lyrics to "Lyrics", DeckView.PlayList to "Play list", DeckView.Equalizer to "Equalizer")
             .forEach { (view, label) -> Pill(label, view == current, onClick = { onShow(view) }) }
-        SleepButton(sleepEndsAt, onSleep, seven = true)
+        SleepButton(sleepEndsAt, onSleep, seven = true, atSongEnd = atSongEnd)
     }
 }
 
@@ -266,12 +267,17 @@ private fun Chip(text: String, lit: Boolean = false) {
 }
 
 @Composable
-private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit, seven: Boolean = false) {
+private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit, seven: Boolean = false, atSongEnd: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     val left = endsAt?.let { ((it - System.currentTimeMillis()) / 60_000 + 1).coerceAtLeast(1) }
+    val label = when {
+        atSongEnd -> "end of song"
+        left != null -> "$left min"
+        else -> null
+    }
     Box {
         if (seven) {
-            Pill(if (left != null) "$left min" else "", on = left != null, icon = Glyphs.Moon, onClick = { open = true })
+            Pill(label ?: "", on = label != null, icon = Glyphs.Moon, onClick = { open = true })
         } else Row(
             Modifier
                 .clip(RoundedCornerShape(3.dp))
@@ -279,13 +285,14 @@ private fun SleepButton(endsAt: Long?, onSleep: (Int) -> Unit, seven: Boolean = 
                 .padding(horizontal = 6.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Glyphs.Moon, null, tint = if (left != null) Palette.Glow else Color(0xFFAEB6BF), modifier = Modifier.size(15.dp))
-            if (left != null) Text(" $left min", fontSize = 12.sp, color = Palette.Glow)
+            Icon(Glyphs.Moon, null, tint = if (label != null) Palette.Glow else Color(0xFFAEB6BF), modifier = Modifier.size(15.dp))
+            if (label != null) Text(" $label", fontSize = 12.sp, color = Palette.Glow)
         }
         if (open) {
             Win7Menu(
                 listOf(15, 30, 45, 60, 90).map { m -> MenuItem("Stop in $m minutes") { onSleep(m) } } +
-                    listOfNotNull(if (endsAt != null) MenuItem("Turn off sleep timer") { onSleep(0) } else null),
+                    MenuItem("Stop at the end of this song", checked = atSongEnd) { onSleep(-1) } +
+                    listOfNotNull(if (endsAt != null || atSongEnd) MenuItem("Turn off sleep timer") { onSleep(0) } else null),
                 onDismiss = { open = false },
                 offsetY = 30.dp,
             )

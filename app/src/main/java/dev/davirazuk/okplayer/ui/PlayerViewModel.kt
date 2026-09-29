@@ -37,6 +37,7 @@ enum class LibraryView(val label: String) {
     Artists("Artists"),
     Albums("Albums"),
     Songs("Songs"),
+    Folders("Folders"),
     RecentlyAdded("Recently added"),
     MostPlayed("Most played"),
     RecentlyPlayed("Recently played"),
@@ -46,6 +47,7 @@ sealed interface Screen {
     data object Library : Screen
     data class AlbumDetail(val albumId: Long) : Screen
     data class ArtistDetail(val artist: String) : Screen
+    data class FolderDetail(val path: String) : Screen
     data object NowPlaying : Screen
     data object Options : Screen
 }
@@ -92,6 +94,7 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
     val equalizer = EqualizerControl.state
     val playStats = PlayStats.stats
     val sleepEndsAt = SleepTimer.endsAt
+    val sleepAtSongEnd = SleepTimer.atSongEnd
     val equalizerPresets = EqualizerControl.presets.keys.toList()
     val notice = PlaybackEvents.notice
     val ratings = Preferences.ratings
@@ -185,6 +188,9 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Plays a list of songs from anywhere in the library, such as search results. */
     fun playTracks(tracks: List<Track>, startIndex: Int) = playList(tracks, startIndex, null)
+
+    /** Plays songs from a folder; [shuffle] as in [playAlbum]. */
+    fun playFolder(tracks: List<Track>, startIndex: Int, shuffle: Boolean?) = playList(tracks, startIndex, shuffle)
 
     /** Opens Now Playing on one of the deck's views. */
     fun openDeck(view: DeckView) {
@@ -297,9 +303,12 @@ class PlayerViewModel(app: Application) : AndroidViewModel(app) {
         Preferences.rate(mediaId, stars)
     }
 
-    /** Minutes, or 0 to turn the timer off. */
+    /** Minutes, 0 to turn the timer off, or -1 for the end of the current song. */
     fun setSleepTimer(minutes: Int) {
-        if (minutes <= 0) {
+        if (minutes < 0) {
+            SleepTimer.startAtSongEnd()
+            PlaybackEvents.post("Music stops when this song ends.", isError = false)
+        } else if (minutes == 0) {
             SleepTimer.cancel()
             PlaybackEvents.post("Sleep timer off.", isError = false)
         } else {
