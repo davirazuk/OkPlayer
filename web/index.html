@@ -617,30 +617,33 @@ async function mp4(file){
 function fromName(file){
   const base=file.name.replace(/\.[^.]+$/,""),m=base.match(/^(\d{1,3})[\s._-]+(.+)$/);
   const parts=(file.webkitRelativePath||file.relPath||"").split("/");
-  return {no:m?parseInt(m[1]):undefined,title:m?m[2]:base,album:parts.length>2?parts[parts.length-2]:undefined};
+  // Untagged files borrow names from their folders: Artist/Album/01 Song.flac.
+  return {no:m?parseInt(m[1]):undefined,title:m?m[2]:base,album:parts.length>=2?parts[parts.length-2]:undefined,artist:parts.length>=3?parts[parts.length-3]:undefined};
 }
 const hash=s=>{let h=5381;for(const c of s)h=(h*33^c.charCodeAt(0))>>>0;return h.toString(36)};
 async function importFiles(list){
   const files=[...list].filter(f=>/\.(flac|mp3|m4a|aac|mp4|ogg|opus|wav)$/i.test(f.name)||f.type.startsWith("audio/"));
   if(!files.length){toast("No audio files found there.");return}
-  let saved=0,sessionOnly=0,i=0;
+  let saved=0,sessionOnly=0,i=0;const got=[];
   for(const f of files){
     i++;$("winTitle").textContent=`importing ${i}/${files.length} — ${f.name}`;
     const id=hash(f.name+f.size+(f.webkitRelativePath||f.relPath||""));
-    if(lib.some(x=>x.id===id))continue;
+    const have=lib.find(x=>x.id===id);if(have){got.push(have);continue}
     const tg=await readTags(f),fn=fromName(f);
-    const tr={id,title:tg.title||fn.title,artist:tg.artist||"unknown artist",album:tg.album||fn.album||"unknown album",albumArtist:tg.albumArtist||tg.artist||"unknown artist",no:tg.no||fn.no||0,disc:tg.disc||1,dur:tg.dur||0,file:f.name,added:Date.now()};
+    const tr={id,title:tg.title||fn.title,artist:tg.artist||fn.artist||"unknown artist",album:tg.album||fn.album||"unknown album",albumArtist:tg.albumArtist||tg.artist||fn.artist||"unknown artist",no:tg.no||fn.no||0,disc:tg.disc||1,dur:tg.dur||0,file:f.name,added:Date.now()};
     const key=albumKey(tr);
     if(tg.pic&&!artUrl.has(key)){artUrl.set(key,URL.createObjectURL(tg.pic));await putFile("art",key,tg.pic);tr.art=key}
     else if(artUrl.has(key))tr.art=key;
     mem.set(id,f);
     if(await putFile("music",id,f)){tr.stored=true;saved++}else sessionOnly++;
-    lib.push(tr);
+    lib.push(tr);got.push(tr);
   }
   lib.forEach(t=>{const k=albumKey(t);if(!t.art&&artUrl.has(k))t.art=k});
   saveLib();$("winTitle").textContent="okplayer";
-  toast(sessionOnly?`Added ${files.length} songs. ${sessionOnly} couldn't be saved in the player, so add those again next time.`:`Added ${files.length} songs to your library.`,4000);
+  const fresh=saved+sessionOnly;
+  toast(!fresh?"Those songs are already in your library.":sessionOnly?`Added ${plural(fresh,"song")}. ${sessionOnly} couldn't be saved in the player, so add those again next time.`:`Added ${plural(fresh,"song")} to your library.`,4000);
   openAlbum=openArtist=null;query="";show("lib");
+  return got;
 }
 $("pickFiles").onchange=e=>{importFiles(e.target.files);e.target.value=""};
 $("pickDir").onchange=e=>{importFiles(e.target.files);e.target.value=""};
@@ -801,7 +804,7 @@ audio.onerror=()=>{const t=queue[qi];if(!t||!audio.src)return;
   const ext=(t.file||"").split(".").pop().toUpperCase();
   toast(`Couldn't play “${t.title}”: this browser can't decode ${ext==="M4A"?"this M4A (it may be ALAC)":"this "+ext+" file"}. The Android app can.`,5000);
   unlocked=true;if(qi+1<queue.length)load(qi+1,true)};
-audio.onplay=audio.onpause=()=>{const on=!audio.paused;$("pinNow").classList.toggle("playing",on);$("disc").classList.toggle("on",on);$("play").innerHTML=on?ICON_PAUSE:ICON_PLAY;$("play").setAttribute("aria-label",on?"Pause":"Play");if("mediaSession" in navigator)navigator.mediaSession.playbackState=on?"playing":"paused"};
+audio.onplay=audio.onpause=()=>{const on=!audio.paused;$("pinNow").classList.toggle("playing",on);window.okDesktop?.setState?.({playing:on});$("disc").classList.toggle("on",on);$("play").innerHTML=on?ICON_PAUSE:ICON_PLAY;$("play").setAttribute("aria-label",on?"Pause":"Play");if("mediaSession" in navigator)navigator.mediaSession.playbackState=on?"playing":"paused"};
 audio.onloadedmetadata=()=>{const t=queue[qi];if(t&&!t.dur&&isFinite(audio.duration)){t.dur=audio.duration;const l=lib.find(x=>x.id===t.id);if(l){l.dur=t.dur;saveLib()}}$("tLen").textContent=fmt(audio.duration);if(queue[qi]&&isFinite(audio.duration))fetchLyrics(queue[qi],audio.duration)};
 audio.ontimeupdate=()=>{if(!counted&&audio.duration&&audio.currentTime/audio.duration>=.6){counted=true;countPlay(queue[qi])}
   if(seeking)return;const d=audio.duration||0,p=d?audio.currentTime/d*1000:0;$("seek").value=p;$("seek").style.setProperty("--p",p/10+"%");$("tNow").textContent=fmt(audio.currentTime);$("tNowLcd").textContent=fmt(audio.currentTime);tickLyrics();
@@ -904,7 +907,7 @@ function renderNow(){
   $("lcdTrack").textContent=has?String(qi+1).padStart(2,"0"):"--";
   $("iFmt").textContent=has?fileFormat(t):"--";$("iFmt").classList.toggle("lit",has);
   $("tLen").textContent=has&&t.dur?fmt(t.dur):"0:00";
-  $("winTitle").textContent=has?`${t.title} - okplayer`:"okplayer";
+  $("winTitle").textContent=document.title=has?`${t.title} - okplayer`:"okplayer";
   if(!has)$("label").style.backgroundImage="";
   marquee();renderReact();renderModes();
   if(!has||lyr.id!==t.id){$("curLyric").textContent="";if(!has)lyr={id:null,status:"none",lines:[],synced:false}}
@@ -1171,7 +1174,13 @@ draw();if(still)setInterval(draw,1000);
 /* ---------- desktop app ---------- */
 if(window.okDesktop){document.body.classList.add("desktop");
   document.querySelectorAll(".caption i").forEach(b=>b.onclick=()=>window.okDesktop[b.dataset.act]());
-  $("winTitle").addEventListener("dblclick",()=>window.okDesktop.maximize())}
+  $("winTitle").addEventListener("dblclick",()=>window.okDesktop.maximize());
+  // The taskbar thumbnail's buttons, and files opened with okplayer from the file manager.
+  window.okDesktop.onCommand?.(cmd=>{if(cmd==="toggle")$("play").click();else if(cmd==="next")next(false);else if(cmd==="prev")prev()});
+  window.okDesktop.onOpenFiles?.(async files=>{
+    const list=files.map(f=>{const x=new File([f.data],f.name);x.relPath=f.relPath;return x});
+    const got=await importFiles(list);if(got?.length){playList(got,0);show("now")}});
+}
 
 /* ---------- boot ---------- */
 (async()=>{

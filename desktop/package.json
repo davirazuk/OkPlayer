@@ -22,7 +22,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "web/**/*"
+      "web/**/*",
+      "icons/*.png"
     ],
     "icon": "build/icon.png",
     "linux": {

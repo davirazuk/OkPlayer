@@ -107,6 +107,12 @@ controls. Releases include `okplayer-vita-*.vpk` for VitaShell. See
 bar is the window's frame, with working minimize, maximize and close. CI builds a
 Windows `.exe` (portable, no install) and a Linux AppImage; releases include both.
 
+- Open files or whole folders with okplayer (or drop them on the `.exe`) and they're
+  added to the library and played. A second launch hands them to the open window.
+- On Windows the taskbar thumbnail has previous / play / next buttons, like WMP.
+- The song playing is the window title, so it shows in the real taskbar.
+- The window reopens at the size and place you left it.
+
 ```
 cd desktop && npm install && npm start
 ```

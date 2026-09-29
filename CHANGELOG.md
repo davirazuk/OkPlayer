@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Desktop: **open files and folders with okplayer** (or drop them on the `.exe`), the
+  Windows **taskbar thumbnail buttons** (previous / play / next), the song in the real
+  taskbar, and the window reopening where you left it.
+- Songs without tags take their artist and album from their folders (Artist/Album/Song).
+- Fixed: picking an album folder in the web version left the album unnamed.
 - **Repeat**: off, the whole list, or one song, on every platform (Ctrl+T on PC). Songs
   replayed by repeat count as plays.
 - **Seven skin**, now the default on PC and web: okplayer's original look is back and
